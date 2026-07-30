@@ -22,15 +22,15 @@
  * convenience.
  */
 export const DEMO_ACCOUNTS: readonly string[] = [
-  // The owner's own account, so the product can be walked end to end without
-  // registering a separate address first.
+  // The two accounts actually in use — one client, one freelancer. Both sides
+  // of the marketplace need their own account: a job cannot be created on
+  // someone else's behalf, because the rules require isSelf(ownerId).
+  //
+  // Note the .com. An earlier list had demo@felicek.app, which matched
+  // nothing, so that account was never granted the skip and kept being asked
+  // for a deposit it could not pay.
   'ktahan629@gmail.com',
-  'demo@felicek.app',
-  // A second address so both sides of the marketplace can be walked: post as
-  // one, bid as the other. A job cannot be created on someone else's behalf —
-  // the rules require isSelf(ownerId) — so seeing a listing from the outside
-  // genuinely needs a second account.
-  'demo.freelancer@felicek.app',
+  'demo@felicek.com',
 ];
 
 export function isDemoAccount(email: string | null | undefined): boolean {

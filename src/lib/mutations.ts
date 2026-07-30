@@ -128,12 +128,31 @@ export async function shortlistProposal(proposalId: string, on: boolean) {
   });
 }
 
-/** Whether this account already has a proposal on this job. */
+/**
+ * Whether this account already has a proposal on this job.
+ *
+ * `permission-denied` here means "no proposal", not "cannot tell", and that
+ * needs justifying because normally they are different answers.
+ *
+ * The id is deterministic — `${jobId}__${uid}` — and the create rule enforces
+ * that shape, so the only document this can ever address is one whose
+ * `freelancerId` is this account. The read rule allows the bidder, so if it
+ * existed it would be readable. It is refused only because the rule
+ * dereferences `resource.data` on a document that is not there.
+ *
+ * Reporting that as unknown hid the bid form from everyone who had not yet
+ * applied — which is exactly the people it exists for.
+ */
 export async function myProposalFor(jobId: string, uid: string): Promise<Proposal | null> {
   const fb = firebase();
   if (!fb) return null;
-  const snap = await getDoc(doc(fb.db, 'proposals', `${jobId}__${uid}`));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Proposal) : null;
+  try {
+    const snap = await getDoc(doc(fb.db, 'proposals', `${jobId}__${uid}`));
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Proposal) : null;
+  } catch (e) {
+    if ((e as { code?: string }).code === 'permission-denied') return null;
+    throw e;  // anything else really is unknown, and must stay unknown
+  }
 }
 
 /**

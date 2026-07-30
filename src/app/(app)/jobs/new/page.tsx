@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
 import { describeError, postJob } from '@/lib/mutations';
@@ -32,9 +33,34 @@ export default function PostJob() {
 
   // A freelancer account cannot post; the rules refuse it, and offering the
   // form anyway would just produce a permission error at the end.
+  //
+  // The message no longer suggests switching account type, because nothing on
+  // the web can do that — sending someone to look for a control that does not
+  // exist is worse than saying plainly what the account is for.
   if (user && user.role === 'freelancer') {
     return (
-      <ErrorState message="Freelancer accounts bid on work rather than post it. Switch your account type from your profile to post a job." />
+      <ErrorState message="This is a freelancer account, which bids on work rather than posting it. Posting needs a client, agency or startup account." />
+    );
+  }
+
+  // Verification is checked here as well as by the rules. Without this the
+  // form takes a title, a description, milestones — and then fails on submit
+  // with a permission error, having wasted all of it. The rule is still the
+  // enforcement; this is just not wasting someone's time first.
+  if (user && !(user.kyc.stage === 'verified' && user.kyc.depositPaid)) {
+    return (
+      <div className="mx-auto max-w-lg">
+        <h1 className="font-serif text-2xl font-semibold sm:text-3xl">Post a job</h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          Publishing needs identity on file and a cleared deposit — the same
+          bar every account on the marketplace has met. It is enforced by the
+          database, so there is no way around it.
+        </p>
+        <Link href={'/verify' as Route}
+          className="mt-6 inline-block rounded-button bg-ink-strong px-5 py-3 text-sm font-bold text-canvas">
+          Finish verification →
+        </Link>
+      </div>
     );
   }
 

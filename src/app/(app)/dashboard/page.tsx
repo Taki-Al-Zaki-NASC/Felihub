@@ -23,15 +23,11 @@ export default function Dashboard() {
   return (
     <>
       {isDemoAccount(user.email) && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-amber/40 bg-amber-tint px-4 py-3">
+        <div className="mb-5 rounded-card border border-amber/40 bg-amber-tint px-4 py-2.5">
           <p className="text-xs">
-            <strong>Demo account.</strong> Deposits can be cleared without
-            paying, and sample listings are available.
+            <strong>Demo account.</strong> This address can clear its deposit
+            without paying. Remove it from the rules before taking real money.
           </p>
-          <Link href={'/seed' as Route}
-            className="text-xs font-bold text-teal-deep">
-            Load sample data →
-          </Link>
         </div>
       )}
       {posts ? <ClientHome uid={user.uid} name={user.displayName} />
