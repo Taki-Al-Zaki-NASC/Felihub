@@ -37,3 +37,17 @@ export function isDemoAccount(email: string | null | undefined): boolean {
   if (!email) return false;
   return DEMO_ACCOUNTS.includes(email.trim().toLowerCase());
 }
+
+/**
+ * Whether the deposit can be cleared without paying, for anyone.
+ *
+ * Mirrors `freeVerification()` in firebase/firestore.rules, and the rules file
+ * is the one that decides — flipping this alone changes what the UI offers,
+ * not what the server permits. Change both together.
+ *
+ * While this is true the marketplace's deposit guarantees are suspended: a
+ * "deposit-backed" badge is self-issued and escrow can be funded with money
+ * that was never collected. It is on so the product can be walked end to end
+ * before a payment gateway exists, and it must go off before real money does.
+ */
+export const FREE_VERIFICATION = true;

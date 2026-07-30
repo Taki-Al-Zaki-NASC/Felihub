@@ -47,9 +47,38 @@ service cloud.firestore {
         .hasOnly(fields);
     }
 
+    // ── Free verification (OPEN BETA) ────────────────────────────────────
+    //
+    // THE PAYMENT GATE IS CURRENTLY OFF. This is the single most consequential
+    // line in the file, so it gets its own section.
+    //
+    // While this returns true, ANY signed-in account may mark its own deposit
+    // as paid without a payment ever happening. The trust bond and the posting
+    // balance become claims rather than facts: a freelancer's "deposit-backed"
+    // badge is self-issued, and a client can fund escrow with money that was
+    // never collected. Every promise the marketplace makes about deposits is
+    // suspended for as long as this is on.
+    //
+    // It is on deliberately, so the product can be walked end to end before a
+    // payment gateway exists. That is a reasonable trade while there is no
+    // real money in the system, and only while there is none.
+    //
+    // TO TURN THE GATE BACK ON: change this to `return false;`. Nothing else
+    // needs touching — the PaymentIntent branch below is untouched and takes
+    // over immediately. Accounts already verified for free keep their status,
+    // so audit `users` for `kyc.paymentRef == 'free-open-beta'` before taking
+    // real payments.
+    function freeVerification() {
+      return true;
+    }
+
     // ── Demo accounts ────────────────────────────────────────────────────
     //
     // A DELIBERATE HOLE IN THE PAYMENT GATE. Read this before keeping it.
+    //
+    // Currently redundant: freeVerification() above is open to everyone, so
+    // this list grants nothing extra. It is kept because it is the mechanism
+    // that remains once the gate is switched back on.
     //
     // Accounts listed here may mark their own deposit as paid without a
     // matching PaymentIntent — that is, they can verify themselves for free.
@@ -96,6 +125,8 @@ service cloud.firestore {
         // `paid`. A client cannot self-report a payment.
         && (
           request.resource.data.kyc.depositPaid == resource.data.kyc.depositPaid
+          // See freeVerification() above — the payment gate is currently off.
+          || (request.resource.data.kyc.depositPaid == true && freeVerification())
           // See isDemoAccount() above — bounded, deliberate, and removable.
           || (request.resource.data.kyc.depositPaid == true && isDemoAccount())
           || (

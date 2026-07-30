@@ -306,7 +306,9 @@ export async function clearDepositAsDemo(uid: string, amountCents: number) {
     kyc: {
       depositPaid: true,
       depositAmountCents: amountCents,
-      paymentRef: 'demo-no-payment',
+      // Tagged so these are findable later: audit for this value before
+      // taking real payments, since none of them represent money received.
+      paymentRef: 'free-open-beta',
       stage: 'verified',
       depositClearedAt: serverTimestamp(),
     },

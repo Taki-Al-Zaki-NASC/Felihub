@@ -57,7 +57,7 @@ export function MarketingHeader() {
                       [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {NAV.map((l) => (
           <Link key={l.href} href={l.href}
-            className="whitespace-nowrap rounded-[9px] px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-backdrop">
+            className="flex min-h-[40px] items-center whitespace-nowrap rounded-[9px] px-3.5 text-sm font-medium text-ink-muted hover:bg-backdrop">
             {l.label}
           </Link>
         ))}
@@ -109,10 +109,16 @@ export function MarketingFooter() {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-white/40">
                 {col.title}
               </h3>
-              <ul className="mt-3 space-y-2.5 text-sm">
+              {/* inline-flex + min-height rather than tighter line-height:
+                  these are the only navigation on a phone footer, and a 20px
+                  target between two other 20px targets is a mis-tap. */}
+              <ul className="mt-1 text-sm">
                 {col.links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className="hover:text-white">{l.label}</Link>
+                    <Link href={l.href}
+                      className="inline-flex min-h-[40px] items-center hover:text-white">
+                      {l.label}
+                    </Link>
                   </li>
                 ))}
               </ul>

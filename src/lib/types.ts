@@ -17,6 +17,8 @@ export interface KycState {
   idReference?: string | null;
   paymentRef?: string | null;
   depositAmountCents?: number;
+  /** Freelancer trust bond, unlocked by the first completed engagement. */
+  depositReleased?: boolean;
 }
 
 export interface AppUser {
@@ -28,6 +30,27 @@ export interface AppUser {
   profileComplete: boolean;
   profilePhotoBase64?: string | null;
   kyc: KycState;
+
+  // Money. Written by escrow.ts, in cents, and absent until the first
+  // movement — so every read defaults rather than assuming zero is stored.
+  /** Freelancer: released earnings not yet withdrawn. */
+  walletBalanceCents?: number;
+  /** Freelancer: lifetime gross, before fees. */
+  totalEarnedCents?: number;
+  /** Client: funds available to spend into escrow when hiring. */
+  postingBalanceCents?: number;
+  jobsDone?: number;
+}
+
+/** One line of the money ledger — users/{uid}/transactions/{id}. */
+export interface WalletTransaction {
+  id: string;
+  label: string;
+  /** Negative for fees and withdrawals, positive for credits. */
+  amountCents: number;
+  kind?: string;
+  jobId?: string | null;
+  createdAt?: { seconds?: number };
 }
 
 /** Deposit policy, matching UserRole in user_role.dart. */

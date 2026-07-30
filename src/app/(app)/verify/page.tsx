@@ -13,7 +13,7 @@ import {
   clearDepositAsDemo, describeError, saveProfilePhoto, submitIdentity,
 } from '@/lib/mutations';
 import { DEPOSIT_CENTS, REQUIRES_PHOTO } from '@/lib/types';
-import { isDemoAccount } from '@/lib/demo';
+import { FREE_VERIFICATION, isDemoAccount } from '@/lib/demo';
 import { validateTd3Line2 } from '@/lib/document-validation';
 import { Button, Card, ErrorState, Pill, SectionLabel, money } from '@/components/ui';
 
@@ -46,6 +46,9 @@ export default function Verify() {
   const done = user.kyc.idSubmitted;
   const ready = Boolean(docShot && selfie) && checkReference(type, reference) === null;
   const demo = isDemoAccount(user.email);
+  // While the beta gate is open this is everyone; once it closes it narrows
+  // back to the allowlist without this screen needing to change.
+  const canSkipPayment = FREE_VERIFICATION || demo;
   const needsPhoto = REQUIRES_PHOTO[user.role];
   const hasPhoto = Boolean(user.profilePhotoBase64);
   // Mirrors isAccountVerified() in the rules, photo requirement included —
@@ -332,50 +335,36 @@ export default function Verify() {
           {/* Never leave this screen without saying what happens next. A
               deposit that cannot be paid and does not explain itself is a dead
               end, and this is the last gate before the product. */}
-          {!user.kyc.depositPaid && !demo && (
-            <div className="mt-4 rounded-field border border-amber/40 bg-amber-tint p-3">
-              <p className="text-xs font-semibold">
-                There is no card checkout on the web yet
-              </p>
-              <p className="mt-1 text-xs text-ink-muted">
-                Clearing a deposit needs a payment gateway webhook running on a
-                server — an account is never allowed to mark its own payment as
-                received, which is the rule that makes escrow mean anything.
-                Until that server exists, this gate opens only for accounts on
-                the demo allowlist.
-              </p>
-              <p className="mt-2 text-xs text-ink-muted">
-                To unblock <strong>{user.email}</strong>: add it to{' '}
-                <code className="rounded bg-canvas px-1 py-0.5">isDemoAccount()</code>{' '}
-                in <code className="rounded bg-canvas px-1 py-0.5">firebase/firestore.rules</code>{' '}
-                and to <code className="rounded bg-canvas px-1 py-0.5">src/lib/demo.ts</code>,
-                then publish the rules again.
-              </p>
-            </div>
-          )}
-
-          {demo && !user.kyc.depositPaid && (
+          {canSkipPayment && !user.kyc.depositPaid && (
             <div className="mt-4 rounded-field border border-teal/40 bg-teal-tint p-3">
-              <p className="text-xs font-semibold">Demo account — skip the payment</p>
-              <p className="mt-1 text-xs text-ink-muted">
-                This address is on the demo allowlist in the security rules, so
-                it can clear its own deposit without paying. Every other account
-                is refused this by the server, not by hiding the button.
+              <p className="text-xs font-semibold">
+                {FREE_VERIFICATION ? 'Free while in beta' : 'Demo account — skip the payment'}
               </p>
-              <Button className="mt-3 w-full" busy={busy}
-                onClick={clearDeposit}>
-                Clear deposit now — no payment
+              <p className="mt-1 text-xs text-ink-muted">
+                {FREE_VERIFICATION
+                  ? 'Verification costs nothing right now. Clear it and the '
+                    + 'whole marketplace opens — posting, bidding, escrow and '
+                    + 'messaging.'
+                  : 'This address is on the demo allowlist in the security '
+                    + 'rules, so it can clear its own deposit without paying.'}
+              </p>
+              <Button className="mt-3 w-full" busy={busy} onClick={clearDeposit}>
+                {FREE_VERIFICATION ? 'Verify free — no payment' : 'Clear deposit now — no payment'}
               </Button>
             </div>
           )}
         </Card>
 
-        {demo && (
+        {canSkipPayment && (
           <p className="mt-3 text-xs text-ink-faint">
-            Remove this address from <code className="rounded bg-backdrop px-1 py-0.5">isDemoAccount()</code>{' '}
-            in firestore.rules and from src/lib/demo.ts before taking real
-            payments — until you do, anyone who can register it gets a free
-            verified account.
+            {FREE_VERIFICATION
+              ? 'The payment gate is off for the beta. Set freeVerification() '
+                + 'to false in firestore.rules — and FREE_VERIFICATION in '
+                + 'src/lib/demo.ts — before taking real money, or every '
+                + 'deposit on the platform is self-issued.'
+              : 'Remove this address from isDemoAccount() before taking real '
+                + 'payments — until you do, anyone who registers it gets a '
+                + 'free verified account.'}
           </p>
         )}
       </section>
