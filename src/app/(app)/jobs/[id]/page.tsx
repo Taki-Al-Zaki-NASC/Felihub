@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { firebase } from '@/lib/firebase';
 import { useSession } from '@/lib/session';
-import { proposalsForJob, useCollection } from '@/lib/queries';
+import { proposalsForJob, useCollection, byNewest } from '@/lib/queries';
 import type { Job, Proposal } from '@/lib/schema';
 import { describeError, setJobStatus } from '@/lib/mutations';
 import {
@@ -49,6 +49,8 @@ export default function JobDetail({ params }: { params: Promise<{ id: string }> 
 function OwnerView({ job }: { job: Job }) {
   const proposals = useCollection<Proposal>(
     'proposals', proposalsForJob(job.id, job.ownerId), [job.id, job.ownerId]);
+  // Newest first, sorted here so the query needs no composite index.
+  const bids = byNewest(proposals.data);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,20 +71,20 @@ function OwnerView({ job }: { job: Job }) {
       <div>
         <JobHeader job={job} />
         <div className="mt-8">
-          <SectionLabel>Proposals ({proposals.data.length})</SectionLabel>
+          <SectionLabel>Proposals ({bids.length})</SectionLabel>
           <div className="mt-3">
             {proposals.loading ? <Loading />
               : proposals.error ? <ErrorState message={proposals.error} />
-              : proposals.data.length === 0 ? (
+              : bids.length === 0 ? (
                 <EmptyState title="No proposals yet"
                   message="Verified freelancers will appear here as they bid." />
-              ) : <ProposalList job={job} proposals={proposals.data} />}
+              ) : <ProposalList job={job} proposals={bids} />}
           </div>
         </div>
       </div>
 
       <aside className="space-y-4">
-        <EscrowPanel job={job} proposals={proposals.data} />
+        <EscrowPanel job={job} proposals={bids} />
         {error && <ErrorState message={error} />}
         {(job.status ?? 'open') === 'open' && (
           <Button variant="danger" busy={busy} onClick={close} className="w-full">

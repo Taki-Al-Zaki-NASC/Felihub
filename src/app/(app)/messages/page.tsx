@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
-import { myChats, useCollection } from '@/lib/queries';
+import { myChats, useCollection, byRecentMessage } from '@/lib/queries';
 import type { ChatThread } from '@/lib/schema';
 import { Card, EmptyState, ErrorState, Loading, Pill, relative } from '@/components/ui';
 
@@ -17,6 +17,8 @@ export default function Inbox() {
   // the threads were deleted.
   if (error) return <ErrorState message={error} />;
 
+  const threads = byRecentMessage(data);
+
   return (
     <>
       <h1 className="font-serif text-2xl font-semibold sm:text-3xl">Messages</h1>
@@ -25,10 +27,10 @@ export default function Inbox() {
       </p>
 
       <div className="mt-6 space-y-2">
-        {data.length === 0 ? (
+        {threads.length === 0 ? (
           <EmptyState title="No conversations yet"
             message="Messaging opens when you are hired, or when a client reaches out about a proposal." />
-        ) : data.map((t) => {
+        ) : threads.map((t) => {
           const otherId = t.participantIds?.find((p) => p !== user.uid) ?? '';
           const name = t.participants?.[otherId] ?? 'Felicek user';
           const unread = isUnread(t, user.uid);

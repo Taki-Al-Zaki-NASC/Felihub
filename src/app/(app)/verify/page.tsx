@@ -141,11 +141,24 @@ export default function Verify() {
       <section className="mt-8">
         <SectionLabel>Identity</SectionLabel>
         {done ? (
-          <Card className="mt-3 flex items-center justify-between">
-            <span className="text-sm">
-              {DOCUMENT_LABELS[(user.kyc.idDocumentType as DocumentType) ?? 'nationalId']} on file
-            </span>
-            <Pill tone="teal">Submitted</Pill>
+          <Card className="mt-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm">
+                {DOCUMENT_LABELS[(user.kyc.idDocumentType as DocumentType) ?? 'nationalId']} on file
+              </span>
+              {/* The screening already ran, on this device, before anything
+                  uploaded — so the verdict is known the moment it is stored.
+                  Showing "Submitted" implied a queue that does not exist. */}
+              <Pill tone="teal">
+                {user.kyc.stage === 'verified' ? '✓ Verified' : 'Submitted'}
+              </Pill>
+            </div>
+            {user.kyc.stage === 'verified' && (
+              <p className="mt-2 text-xs text-ink-muted">
+                Checked and cleared instantly on this device. No review queue,
+                no waiting.
+              </p>
+            )}
           </Card>
         ) : (
           <>
@@ -213,7 +226,7 @@ export default function Verify() {
             {error && <div className="mt-4"><ErrorState message={error} /></div>}
 
             <Button className="mt-5 w-full" busy={busy} disabled={!ready} onClick={submit}>
-              Submit for verification
+              Verify now — instant
             </Button>
             <p className="mt-3 text-xs text-ink-faint">
               Checks run on this device and confirm the photos are legible — they

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
-import { openJobs, useCollection } from '@/lib/queries';
+import { openJobs, useCollection, byNewest } from '@/lib/queries';
 import type { Job } from '@/lib/schema';
 import { JobRow } from '@/components/job-row';
 import { EmptyState, ErrorState, Loading, SectionLabel } from '@/components/ui';
@@ -34,12 +34,16 @@ export default function BrowseJobs() {
 
   const shown = useMemo(() => {
     const q = term.trim().toLowerCase();
-    return data.filter((j) => {
+    // Open-only and newest-first are applied here rather than in the query:
+    // a where + orderBy pair needs a composite index, and an un-deployed
+    // index fails the entire read instead of returning unsorted rows.
+    return byNewest(data.filter((j) => {
+      if ((j.status ?? 'open') !== 'open') return false;
       if (skill && !(j.skills ?? []).includes(skill)) return false;
       if (!q) return true;
       return `${j.title} ${j.description ?? ''} ${(j.skills ?? []).join(' ')}`
         .toLowerCase().includes(q);
-    });
+    }));
   }, [data, term, skill]);
 
   return (

@@ -45,13 +45,7 @@ export function useCollection<T>(
         loading: false,
         error: null,
       }),
-      (e) => setState({
-        data: [],
-        loading: false,
-        error: e.code === 'permission-denied'
-          ? 'You do not have access to this, or the security rules have not been deployed for this project.'
-          : 'That could not be loaded. Check your connection and try again.',
-      }),
+      (e) => setState({ data: [], loading: false, error: describeQueryFailure(e) }),
     );
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,14 +54,63 @@ export function useCollection<T>(
   return state;
 }
 
-export const openJobs = (max = 25) =>
-  [where('status', '==', 'open'), orderBy('createdAt', 'desc'), fbLimit(max)];
+/**
+ * Turns a failed query into a sentence that names the actual cause.
+ *
+ * `failed-precondition` is Firestore saying "this query needs a composite
+ * index" — a deployment gap, not a network one. Calling it a connection
+ * problem sent people to check their wifi over a missing index, so the
+ * message now says what it is, and passes through the console link Firestore
+ * puts in the error text.
+ */
+function describeQueryFailure(e: { code?: string; message?: string }): string {
+  if (e.code === 'permission-denied') {
+    return 'You do not have access to this, or the security rules have not '
+      + 'been deployed for this project.';
+  }
+  if (e.code === 'failed-precondition') {
+    const link = e.message?.match(/https:\/\/\S+/)?.[0];
+    return 'This list needs a Firestore index that has not been created yet.'
+      + (link ? ` Create it here: ${link}` : ' Run `firebase deploy --only firestore:indexes`.');
+  }
+  if (e.code === 'unavailable') {
+    return 'Could not reach the database. Check your connection and try again.';
+  }
+  return 'That could not be loaded. Please try again.';
+}
 
-export const myJobs = (uid: string) =>
-  [where('ownerId', '==', uid), orderBy('createdAt', 'desc')];
+/**
+ * Ordering happens here, not in the query, and that is deliberate.
+ *
+ * Pairing a `where` with an `orderBy` on a *different* field is what forces a
+ * composite index, and an un-deployed index fails the whole query — the list
+ * renders as an error rather than as unsorted rows. Equality and
+ * array-contains filters on their own ride the single-field indexes Firestore
+ * maintains automatically, so these queries work the moment the rules are
+ * published, with nothing else to deploy.
+ *
+ * The cost is that the sort happens on the client, over the documents that
+ * account can already read. At this scale that is a few dozen rows. If a
+ * single account ever holds thousands, move the ordering back into the query
+ * and deploy firebase/firestore.indexes.json, which still carries them.
+ */
+export function byNewest<T extends { createdAt?: { seconds?: number } }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+}
 
-export const myProposals = (uid: string) =>
-  [where('freelancerId', '==', uid), orderBy('createdAt', 'desc')];
+export function byRecentMessage<T extends { lastMessageAt?: { seconds?: number } }>(
+  rows: T[],
+): T[] {
+  return [...rows].sort(
+    (a, b) => (b.lastMessageAt?.seconds ?? 0) - (a.lastMessageAt?.seconds ?? 0));
+}
+
+/** Open listings. Status is filtered client-side for the same reason. */
+export const openJobs = (max = 60) => [fbLimit(max)];
+
+export const myJobs = (uid: string) => [where('ownerId', '==', uid)];
+
+export const myProposals = (uid: string) => [where('freelancerId', '==', uid)];
 
 /**
  * Applicants on one listing, for the owner.
@@ -80,11 +123,7 @@ export const myProposals = (uid: string) =>
  * applicant list on a job that had bids.
  */
 export const proposalsForJob = (jobId: string, ownerId: string) =>
-  [
-    where('jobId', '==', jobId),
-    where('jobOwnerId', '==', ownerId),
-    orderBy('createdAt', 'desc'),
-  ];
+  [where('jobId', '==', jobId), where('jobOwnerId', '==', ownerId)];
 
 export const myChats = (uid: string) =>
-  [where('participantIds', 'array-contains', uid), orderBy('lastMessageAt', 'desc')];
+  [where('participantIds', 'array-contains', uid)];

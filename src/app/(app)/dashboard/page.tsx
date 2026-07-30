@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
-import { useCollection, myJobs, myProposals, openJobs } from '@/lib/queries';
+import { useCollection, myJobs, myProposals, openJobs, byNewest } from '@/lib/queries';
 import type { Job, Proposal } from '@/lib/schema';
 import { EmptyState, ErrorState, Loading, SectionLabel, Stat, money } from '@/components/ui';
 import { JobRow } from '@/components/job-row';
@@ -31,9 +31,10 @@ function ClientHome({ uid, name }: { uid: string; name: string }) {
   // wrong answer about the client's own money.
   if (jobs.error) return <ErrorState message={jobs.error} />;
 
-  const open = jobs.data.filter((j) => (j.status ?? 'open') === 'open');
-  const escrow = jobs.data.reduce((sum, j) => sum + (j.escrowHeldCents ?? 0), 0);
-  const proposals = jobs.data.reduce((sum, j) => sum + (j.proposalsCount ?? 0), 0);
+  const rows = byNewest(jobs.data);
+  const open = rows.filter((j) => (j.status ?? 'open') === 'open');
+  const escrow = rows.reduce((sum, j) => sum + (j.escrowHeldCents ?? 0), 0);
+  const proposals = rows.reduce((sum, j) => sum + (j.proposalsCount ?? 0), 0);
 
   return (
     <>
@@ -53,12 +54,12 @@ function ClientHome({ uid, name }: { uid: string; name: string }) {
       </div>
 
       <div className="mt-3 space-y-3">
-        {jobs.data.length === 0 ? (
+        {rows.length === 0 ? (
           <EmptyState
             title="No listings yet"
             message="Post a job and verified freelancers can start bidding."
           />
-        ) : jobs.data.map((j) => <JobRow key={j.id} job={j} owner />)}
+        ) : rows.map((j) => <JobRow key={j.id} job={j} owner />)}
       </div>
     </>
   );
@@ -73,6 +74,10 @@ function FreelancerHome({ uid, name }: { uid: string; name: string }) {
   const active = mine.data.filter(
     (p) => p.status === 'submitted' || p.status === 'shortlisted');
   const won = mine.data.filter((p) => p.status === 'accepted');
+  // Status is filtered here rather than in the query: pairing a where with an
+  // orderBy would force a composite index, and a missing index fails the whole
+  // read rather than degrading.
+  const openFeed = byNewest(feed.data.filter((j) => (j.status ?? 'open') === 'open'));
 
   return (
     <>
@@ -81,7 +86,7 @@ function FreelancerHome({ uid, name }: { uid: string; name: string }) {
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <Stat label="Active bids" value={mine.error ? '—' : String(active.length)} tone="blue" />
         <Stat label="Won" value={mine.error ? '—' : String(won.length)} tone="teal" />
-        <Stat label="Open listings" value={feed.error ? '—' : String(feed.data.length)} tone="violet" />
+        <Stat label="Open listings" value={feed.error ? '—' : String(openFeed.length)} tone="violet" />
       </div>
 
       {mine.error && <div className="mt-4"><ErrorState message={mine.error} /></div>}
@@ -95,10 +100,10 @@ function FreelancerHome({ uid, name }: { uid: string; name: string }) {
 
       <div className="mt-3 space-y-3">
         {feed.error ? <ErrorState message={feed.error} />
-          : feed.data.length === 0 ? (
+          : openFeed.length === 0 ? (
             <EmptyState title="Nothing open right now"
               message="New listings appear here as clients post them." />
-          ) : feed.data.slice(0, 8).map((j) => <JobRow key={j.id} job={j} />)}
+          ) : openFeed.slice(0, 8).map((j) => <JobRow key={j.id} job={j} />)}
       </div>
     </>
   );
