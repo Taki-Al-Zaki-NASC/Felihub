@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { MarketingHeader, MarketingFooter } from '@/components/marketing-chrome';
 
 /**
  * Marketing landing page.
@@ -65,26 +66,7 @@ const CLAIMS = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-20 border-b border-border bg-canvas/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <span className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-ink-strong">
-              <span className="h-3 w-3 rounded-full border-[2.5px] border-canvas" />
-            </span>
-            <span className="font-serif text-xl font-semibold">Felicek</span>
-          </span>
-          <nav className="flex items-center gap-2 sm:gap-4">
-            <Link href={'/signin' as Route}
-              className="rounded-[9px] px-3 py-2 text-sm font-semibold text-ink-muted hover:bg-backdrop">
-              Sign in
-            </Link>
-            <Link href={'/signup' as Route}
-              className="rounded-button bg-ink-strong px-4 py-2.5 text-sm font-bold text-canvas hover:opacity-90">
-              Join
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <main>
         {/* Hero */}
@@ -234,26 +216,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-border bg-ink-strong py-10 text-white/60">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <span className="flex items-center gap-2.5 font-serif text-lg font-semibold text-white">
-              <span className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-white/10">
-                <span className="h-2.5 w-2.5 rounded-full bg-teal" />
-              </span>
-              Felicek
-            </span>
-            <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
-              <Link href={'/jobs' as Route} className="hover:text-white">Find work</Link>
-              <Link href={'/signup' as Route} className="hover:text-white">Post a job</Link>
-              <Link href={'/signin' as Route} className="hover:text-white">Sign in</Link>
-            </nav>
-          </div>
-          <div className="mt-6 border-t border-white/10 pt-6 text-xs">
-            © Felicek
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }
