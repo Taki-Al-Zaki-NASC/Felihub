@@ -7,8 +7,12 @@ import {
 } from '@/lib/identity-check';
 import type { CheckResult } from '@/lib/identity-check';
 import { prepareDocument } from '@/lib/image-web';
-import { describeError, submitIdentity } from '@/lib/mutations';
-import { DEPOSIT_CENTS } from '@/lib/types';
+import {
+  clearDepositAsDemo, describeError, saveProfilePhoto, submitIdentity,
+} from '@/lib/mutations';
+import { DEPOSIT_CENTS, REQUIRES_PHOTO } from '@/lib/types';
+import { isDemoAccount } from '@/lib/demo';
+import { validateTd3Line2 } from '@/lib/document-validation';
 import { Button, Card, ErrorState, Pill, SectionLabel, money } from '@/components/ui';
 
 /**
@@ -29,6 +33,9 @@ export default function Verify() {
   const [docShot, setDocShot] = useState<{ b64: string; check: CheckResult } | null>(null);
   const [selfie, setSelfie] = useState<{ b64: string; check: CheckResult } | null>(null);
   const [failed, setFailed] = useState<Record<string, CheckResult>>({});
+  const [mrz, setMrz] = useState('');
+  const [mrzNote, setMrzNote] = useState<string | null>(null);
+  const [mrzOk, setMrzOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +43,55 @@ export default function Verify() {
 
   const done = user.kyc.idSubmitted;
   const ready = Boolean(docShot && selfie) && checkReference(type, reference) === null;
+  const demo = isDemoAccount(user.email);
+  const needsPhoto = REQUIRES_PHOTO[user.role];
+  const hasPhoto = Boolean(user.profilePhotoBase64);
+
+  function verifyMrz(line: string) {
+    setMrz(line);
+    if (!line.trim()) { setMrzNote(null); setMrzOk(false); return; }
+    const r = validateTd3Line2(line);
+    setMrzOk(r.valid);
+    setMrzNote(r.valid
+      ? `Check digits verified. Passport ${r.documentNumber}.`
+      : r.problem ?? 'That MRZ could not be verified.');
+    // A verified MRZ carries the passport number, so fill it in rather than
+    // asking for the same characters twice.
+    if (r.valid && r.documentNumber) {
+      setReference(r.documentNumber.replace(/</g, ''));
+      setRefError(null);
+    }
+  }
+
+  async function capturePhoto(file: File | undefined) {
+    if (!file || !user) return;
+    setBusy(true); setError(null);
+    try {
+      const { check, base64 } = await prepareDocument(file, true);
+      if (!check.passed || !base64) {
+        setFailed((f) => ({ ...f, photo: check }));
+        return;
+      }
+      setFailed((f) => { const n = { ...f }; delete n.photo; return n; });
+      await saveProfilePhoto(user.uid, base64);
+    } catch (e) {
+      setError(describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearDeposit() {
+    if (!user) return;
+    setBusy(true); setError(null);
+    try {
+      await clearDepositAsDemo(user.uid, DEPOSIT_CENTS[user.role]);
+    } catch (e) {
+      setError(describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function capture(file: File | undefined, isFace: boolean) {
     if (!file) return;
@@ -104,9 +160,42 @@ export default function Verify() {
               ))}
             </div>
 
+            {type === 'passport' && (
+              <label className="mt-4 block">
+                <span className="text-xs font-semibold text-ink-muted">
+                  Machine-readable zone — second line (optional)
+                </span>
+                <span className="mt-0.5 block text-[11px] text-ink-faint">
+                  The lower of the two {'<<<'} lines at the bottom of the photo
+                  page, 44 characters. Its check digits are verified here, which
+                  is a real arithmetic check a made-up number cannot pass.
+                </span>
+                <input value={mrz} onChange={(e) => verifyMrz(e.target.value)}
+                  spellCheck={false} autoCapitalize="characters"
+                  placeholder="L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+                  className={`mt-1.5 w-full rounded-field border bg-surface px-3.5 py-3 font-mono text-sm outline-none ${
+                    mrz && mrzOk ? 'border-teal' : mrz ? 'border-danger' : 'border-border focus:border-teal'
+                  }`} />
+                {mrzNote && (
+                  <span className={`mt-1 block text-xs ${mrzOk ? 'text-teal-deep' : 'text-danger'}`}>
+                    {mrzOk ? '✓ ' : '• '}{mrzNote}
+                  </span>
+                )}
+              </label>
+            )}
+
             <label className="mt-4 block">
-              <span className="text-xs font-semibold text-ink-muted">Document number</span>
+              <span className="text-xs font-semibold text-ink-muted">
+                {type === 'nationalId' ? 'National ID number' : 'Document number'}
+              </span>
+              {type === 'nationalId' && (
+                <span className="mt-0.5 block text-[11px] text-ink-faint">
+                  10, 13 or 17 digits. A 17-digit number starts with your birth
+                  year, and that is checked.
+                </span>
+              )}
               <input value={reference}
+                inputMode={type === 'nationalId' ? 'numeric' : 'text'}
                 onChange={(e) => { setReference(e.target.value); setRefError(null); }}
                 className="mt-1.5 w-full rounded-field border border-border bg-surface px-3.5 py-3 text-base outline-none focus:border-teal sm:text-sm" />
               {refError && <span className="mt-1 block text-xs text-danger">{refError}</span>}
@@ -135,6 +224,49 @@ export default function Verify() {
         )}
       </section>
 
+      {needsPhoto && (
+        <section className="mt-10">
+          <SectionLabel>Profile photo</SectionLabel>
+          <Card className="mt-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {hasPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`data:image/jpeg;base64,${user.profilePhotoBase64}`}
+                    alt="Your profile photo"
+                    className="h-12 w-12 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-backdrop text-ink-faint">
+                    ?
+                  </span>
+                )}
+                <div>
+                  <p className="text-sm font-semibold">
+                    {hasPhoto ? 'Photo on file' : 'Required for freelancers'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    A verified freelancer without a face defeats the point.
+                  </p>
+                </div>
+              </div>
+              <label className="cursor-pointer whitespace-nowrap text-xs font-bold text-teal-deep">
+                {hasPhoto ? 'Replace' : 'Add photo'}
+                <input type="file" accept="image/*" capture="user" className="hidden"
+                  disabled={busy}
+                  onChange={(e) => void capturePhoto(e.target.files?.[0])} />
+              </label>
+            </div>
+            {failed.photo && !failed.photo.passed && (
+              <ul className="mt-2 space-y-1">
+                {failed.photo.reasons.map((r) => (
+                  <li key={r} className="text-xs text-danger">• {r}</li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </section>
+      )}
+
       <section className="mt-10">
         <SectionLabel>Deposit</SectionLabel>
         <Card className="mt-3">
@@ -157,7 +289,31 @@ export default function Verify() {
             paid — the client cannot mark its own payment cleared, by design.
             See docs/PAYMENTS.md.
           </p>
+
+          {demo && !user.kyc.depositPaid && (
+            <div className="mt-4 rounded-field border border-amber/40 bg-amber-tint p-3">
+              <p className="text-xs font-semibold">Demo account</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                This address is on the demo allowlist in the security rules, so
+                it can clear its own deposit without paying. Every other account
+                is refused this by the server, not by hiding the button.
+              </p>
+              <Button className="mt-3 w-full" variant="secondary" busy={busy}
+                onClick={clearDeposit}>
+                Clear deposit without paying (demo)
+              </Button>
+            </div>
+          )}
         </Card>
+
+        {demo && (
+          <p className="mt-3 text-xs text-ink-faint">
+            Remove this address from <code className="rounded bg-backdrop px-1 py-0.5">isDemoAccount()</code>{' '}
+            in firestore.rules and from src/lib/demo.ts before taking real
+            payments — until you do, anyone who can register it gets a free
+            verified account.
+          </p>
+        )}
       </section>
     </div>
   );

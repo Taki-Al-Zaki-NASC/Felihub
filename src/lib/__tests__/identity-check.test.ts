@@ -63,7 +63,16 @@ test('a plausible passport number is accepted', () => {
 });
 
 test('spaces and dashes are tolerated rather than punished', () => {
-  assert.equal(checkReference('nationalId', '1234 5678 9012'), null);
+  // 13 digits — a length Bangladesh actually issues. This test is about the
+  // separators, so its example has to satisfy the new structural rule too.
+  assert.equal(checkReference('nationalId', '1234 5678 9012 3'), null);
+  assert.equal(checkReference('nationalId', '1234-5678-9012-3'), null);
+});
+
+test('a National ID of the wrong length is refused, and says which', () => {
+  const r = checkReference('nationalId', '123456789012')!; // 12 digits
+  assert.match(r, /10, 13 or 17 digits/);
+  assert.match(r, /this is 12/);
 });
 
 test('empty is refused', () => {
@@ -71,7 +80,9 @@ test('empty is refused', () => {
 });
 
 test('a repeated single character is refused', () => {
-  assert.match(checkReference('nationalId', '0000000000')!, /does not look like/);
+  assert.match(checkReference('nationalId', '0000000000')!, /same digit repeated/);
+  // Still true for the document types that did not gain structural rules.
+  assert.match(checkReference('passport', 'AAAAAAAA')!, /does not look like/);
 });
 
 test('punctuation is refused with a specific reason', () => {

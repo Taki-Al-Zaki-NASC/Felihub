@@ -155,6 +155,91 @@ export default function Home() {
           </div>
         </section>
 
+        {/* What the product actually looks like once you're in.
+            A marketplace landing page that only makes claims reads as
+            vapourware — these are the real screens, with the real numbers the
+            fee code produces. */}
+        <section className="border-y border-border bg-surface py-14 sm:py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <h2 className="font-serif text-2xl font-semibold sm:text-3xl">Inside Felicek</h2>
+            <p className="mt-2 max-w-2xl text-sm text-ink-muted">
+              Not mockups of a someday product — this is what is behind the
+              sign-in, today.
+            </p>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-2">
+              <Screen
+                step="01"
+                title="Your dashboard"
+                body="Role-aware. A client sees listings, proposals received and escrow held; a freelancer sees live bids and open work."
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniStat label="Open listings" value="3" tone="teal" />
+                  <MiniStat label="Proposals" value="17" tone="blue" />
+                  <MiniStat label="In escrow" value="$4,750" tone="violet" />
+                </div>
+                <div className="mt-3 space-y-2">
+                  <MiniRow title="Android app — Compose UI" meta="8 proposals · $2,800" pill="Open" />
+                  <MiniRow title="Brand identity refresh" meta="5 proposals · $1,200" pill="Filled" tone="teal" />
+                </div>
+              </Screen>
+
+              <Screen
+                step="02"
+                title="Proposals, with the bid up front"
+                body="Every bidder has identity on file and a deposit behind them. Shortlist, message, or hire straight from the list."
+              >
+                <div className="space-y-2">
+                  <MiniProposal name="Rafiq H." bid="$2,650" status="Shortlisted" tone="teal" />
+                  <MiniProposal name="Anika S." bid="$2,800" status="Submitted" />
+                  <MiniProposal name="Tanvir M." bid="$3,100" status="Submitted" />
+                </div>
+              </Screen>
+
+              <Screen
+                step="03"
+                title="Escrow, released per milestone"
+                body="Funded before work starts. Every fee is itemised — the gateway's cut and Felicek's 1% never blended into one number."
+              >
+                <div className="rounded-[10px] border border-border bg-canvas p-3">
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>Milestone 2 — Beta build</span>
+                    <span>$1,400.00</span>
+                  </div>
+                  <dl className="mt-2.5 space-y-1.5 text-xs">
+                    <FeeLine label="Payment processing (2%)" value="− $28.00" />
+                    <FeeLine label="Felicek platform fee (1%)" value="− $14.00" />
+                  </dl>
+                  <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2.5 text-sm">
+                    <span className="font-medium">Freelancer receives</span>
+                    <span className="font-serif text-lg font-semibold text-teal-deep">$1,358.00</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] text-ink-faint">
+                  Same arithmetic as the fee calculator — one function, both places.
+                </p>
+              </Screen>
+
+              <Screen
+                step="04"
+                title="Messaging, and files that stay withheld"
+                body="Deliverables arrive watermarked. The clean original is unreadable to the client until that milestone is released."
+              >
+                <div className="space-y-2">
+                  <Bubble side="them" text="Beta build attached — preview is watermarked." />
+                  <div className="ml-auto max-w-[85%] rounded-[10px] border border-dashed border-violet/50 bg-violet-tint p-2.5">
+                    <p className="text-xs font-semibold">build-v2.zip</p>
+                    <p className="mt-0.5 text-[11px] text-ink-muted">
+                      Clean copy locked · releases with milestone 2
+                    </p>
+                  </div>
+                  <Bubble side="me" text="Reviewing now — releasing today." />
+                </div>
+              </Screen>
+            </div>
+          </div>
+        </section>
+
         {/* How it works, per side */}
         <section className="border-y border-border bg-surface py-14 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -267,6 +352,98 @@ function Steps({ title, steps, tone }: {
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/* ── "Inside Felicek" preview pieces ───────────────────────────────────────
+   Static markup, no client JS: the landing page has to stay indexable, which
+   is the whole reason this app is Next.js rather than Flutter Web. */
+
+function Screen({ step, title, body, children }: {
+  step: string; title: string; body: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-card-lg border border-border bg-neutral-tint p-5">
+      <div className="flex items-baseline gap-2.5">
+        <span className="font-mono text-xs font-bold text-teal-deep">{step}</span>
+        <h3 className="font-serif text-lg font-semibold">{title}</h3>
+      </div>
+      <p className="mt-1.5 text-sm text-ink-muted">{body}</p>
+      <div className="mt-4 rounded-card border border-border bg-surface p-3">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone }: {
+  label: string; value: string; tone: 'teal' | 'blue' | 'violet';
+}) {
+  const colour = { teal: 'text-teal-deep', blue: 'text-blue', violet: 'text-violet' }[tone];
+  return (
+    <div className="rounded-[10px] border border-border bg-canvas p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
+      <p className={`mt-0.5 font-serif text-lg font-semibold ${colour}`}>{value}</p>
+    </div>
+  );
+}
+
+function MiniRow({ title, meta, pill, tone = 'neutral' }: {
+  title: string; meta: string; pill: string; tone?: 'neutral' | 'teal';
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-canvas px-3 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold">{title}</p>
+        <p className="mt-0.5 text-[11px] text-ink-muted">{meta}</p>
+      </div>
+      <span className={`shrink-0 rounded-[7px] px-2 py-0.5 text-[10px] font-semibold ${
+        tone === 'teal' ? 'bg-teal-tint text-teal-deep' : 'bg-backdrop text-ink-muted'
+      }`}>
+        {pill}
+      </span>
+    </div>
+  );
+}
+
+function MiniProposal({ name, bid, status, tone = 'neutral' }: {
+  name: string; bid: string; status: string; tone?: 'neutral' | 'teal';
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-[10px] border border-border bg-canvas px-3 py-2">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-tint text-[11px] font-bold text-teal-deep">
+        {name[0]}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-semibold">{name}</p>
+        <p className="mt-0.5 text-[11px] text-ink-muted">Verified · deposit cleared</p>
+      </div>
+      <span className="shrink-0 text-xs font-semibold">{bid}</span>
+      <span className={`shrink-0 rounded-[7px] px-2 py-0.5 text-[10px] font-semibold ${
+        tone === 'teal' ? 'bg-teal-tint text-teal-deep' : 'bg-backdrop text-ink-muted'
+      }`}>
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function FeeLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="text-ink-muted">{value}</dd>
+    </div>
+  );
+}
+
+function Bubble({ side, text }: { side: 'me' | 'them'; text: string }) {
+  return (
+    <div className={`max-w-[85%] rounded-[10px] px-2.5 py-2 text-xs ${
+      side === 'me' ? 'ml-auto bg-teal text-white' : 'bg-backdrop text-ink'
+    }`}>
+      {text}
     </div>
   );
 }

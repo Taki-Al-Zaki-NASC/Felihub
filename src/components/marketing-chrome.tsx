@@ -7,22 +7,61 @@ import { Wordmark } from './ui';
  * (about/features/offer/calculator/faq/contact). Extracted once six pages
  * started needing the same chrome, rather than copied into each.
  */
+/**
+ * Primary navigation.
+ *
+ * Real destinations only — every one of these resolves to a page that exists.
+ * A marketing nav full of links to nothing is worse than a short nav.
+ */
+const NAV: { href: Route; label: string }[] = [
+  { href: '/jobs' as Route, label: 'Find work' },
+  { href: '/signup' as Route, label: 'Hire talent' },
+  { href: '/features' as Route, label: 'How it works' },
+  { href: '/offer' as Route, label: 'Pricing' },
+  { href: '/calculator' as Route, label: 'Fee calculator' },
+  { href: '/about' as Route, label: 'About' },
+];
+
 export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-canvas/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3.5 sm:px-6">
         <Wordmark />
-        <nav className="flex items-center gap-2 sm:gap-4">
+
+        {/* Desktop: the full set. Phones get the scrollable strip below, so
+            nothing is hidden behind a menu that has to be discovered. */}
+        <nav className="hidden flex-1 items-center gap-1 lg:flex">
+          {NAV.map((l) => (
+            <Link key={l.href} href={l.href}
+              className="rounded-[9px] px-3 py-2 text-sm font-medium text-ink-muted transition hover:bg-backdrop hover:text-ink">
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0">
           <Link href={'/signin' as Route}
             className="rounded-[9px] px-3 py-2 text-sm font-semibold text-ink-muted hover:bg-backdrop">
             Sign in
           </Link>
           <Link href={'/signup' as Route}
-            className="rounded-button bg-ink-strong px-4 py-2.5 text-sm font-bold text-canvas hover:opacity-90">
+            className="rounded-button bg-ink-strong px-4 py-2.5 text-sm font-bold text-canvas transition hover:opacity-90">
             Join
           </Link>
-        </nav>
+        </div>
       </div>
+
+      {/* Phone and tablet: one horizontally scrollable row rather than a
+          hamburger. Fewer taps, and the destinations stay visible. */}
+      <nav className="flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden
+                      [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {NAV.map((l) => (
+          <Link key={l.href} href={l.href}
+            className="whitespace-nowrap rounded-[9px] px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-backdrop">
+            {l.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

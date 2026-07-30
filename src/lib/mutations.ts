@@ -269,6 +269,53 @@ export async function submitIdentity(input: {
   }, { merge: true });
 }
 
+/**
+ * Clears the deposit for a demo account, with no payment.
+ *
+ * This only succeeds for an address in `isDemoAccount()` in the rules — the
+ * check is on `request.auth.token.email`, which Firebase Auth sets and a
+ * client cannot forge. Calling it from any other account is refused
+ * server-side, so the button being visible is not what grants anything.
+ *
+ * See src/lib/demo.ts for the standing warning about emptying the list before
+ * real payments.
+ */
+export async function clearDepositAsDemo(uid: string, amountCents: number) {
+  const fb = firebase();
+  if (!fb) throw new Error('Firebase is not configured.');
+  await setDoc(doc(fb.db, 'users', uid), {
+    kyc: {
+      depositPaid: true,
+      depositAmountCents: amountCents,
+      paymentRef: 'demo-no-payment',
+      stage: 'verified',
+      depositClearedAt: serverTimestamp(),
+    },
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+/**
+ * Stores the profile photo.
+ *
+ * Mandatory for individual freelancers: `isAccountVerified()` in the rules
+ * refuses to treat a freelancer as verified without one, so without this the
+ * web could take a freelancer through identity and deposit and still leave
+ * them unable to bid.
+ */
+export async function saveProfilePhoto(uid: string, base64: string) {
+  const fb = firebase();
+  if (!fb) throw new Error('Firebase is not configured.');
+  const batch = writeBatch(fb.db);
+  batch.set(doc(fb.db, 'users', uid), {
+    profilePhotoBase64: base64, updatedAt: serverTimestamp(),
+  }, { merge: true });
+  batch.set(doc(fb.db, 'profiles', uid), {
+    photoBase64: base64, updatedAt: serverTimestamp(),
+  }, { merge: true });
+  await batch.commit();
+}
+
 const summarise = (c: CheckResult) => ({
   passed: c.passed,
   sharpness: Number(c.sharpness.toFixed(1)),

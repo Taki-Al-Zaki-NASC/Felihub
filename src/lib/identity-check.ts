@@ -11,6 +11,10 @@
  * Thresholds are copied from the Dart implementation. If they drift, the same
  * photo passes on one surface and fails on the other.
  */
+// Explicit .ts extension: the test suite runs under
+// `node --experimental-strip-types`, which resolves imports literally and
+// cannot infer the extension the bundler adds for free.
+import { validateBangladeshNid } from './document-validation.ts';
 
 export const MIN_SHARPNESS = 22;
 export const MIN_BRIGHTNESS = 45;
@@ -45,10 +49,22 @@ const MIN_LENGTH: Record<DocumentType, number> = {
   nationalId: 6, passport: 6, drivingLicence: 5, governmentId: 5, birthCertificate: 5,
 };
 
-/** Format only — it cannot confirm the number was ever issued. */
+/**
+ * Structural validation of the number itself.
+ *
+ * A National ID now goes through `validateBangladeshNid`, which checks the
+ * embedded birth year and the eligibility age rather than only counting
+ * characters. Passports additionally accept an MRZ, validated by check digit
+ * — see document-validation.ts. Neither can confirm the number was ever
+ * issued; only the issuing authority can.
+ */
 export function checkReference(type: DocumentType, raw: string): string | null {
   const value = raw.trim().toUpperCase().replace(/[\s-]/g, '');
   if (!value) return 'Enter the document number.';
+  if (type === 'nationalId') {
+    const nid = validateBangladeshNid(value);
+    return nid.valid ? null : nid.problem ?? 'That is not a valid National ID.';
+  }
   if (value.length < MIN_LENGTH[type]) {
     return `That is shorter than a ${DOCUMENT_LABELS[type].toLowerCase()} number.`;
   }
