@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { useSession } from '@/lib/session';
 import {
   checkReference, DOCUMENT_LABELS, PRIMARY_DOCUMENTS, type DocumentType,
@@ -46,6 +48,10 @@ export default function Verify() {
   const demo = isDemoAccount(user.email);
   const needsPhoto = REQUIRES_PHOTO[user.role];
   const hasPhoto = Boolean(user.profilePhotoBase64);
+  // Mirrors isAccountVerified() in the rules, photo requirement included —
+  // so this screen agrees with what the server will actually allow.
+  const allClear = done && Boolean(user.kyc.depositPaid)
+    && user.kyc.stage === 'verified' && (!needsPhoto || hasPhoto);
 
   function verifyMrz(line: string) {
     setMrz(line);
@@ -137,6 +143,33 @@ export default function Verify() {
         Every Felicek account needs identity on file and a cleared deposit
         before it can post or bid. There is no skip.
       </p>
+
+      {/* The whole gate on one line. The photo requirement in particular is
+          invisible until a bid is refused, because it lives in the security
+          rules rather than on this screen — so it is listed here instead. */}
+      <div className="mt-6 rounded-card-lg border border-border bg-neutral-tint p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+            {allClear ? 'Account ready' : 'What is left'}
+          </p>
+          {allClear && <Pill tone="teal">✓ Verified</Pill>}
+        </div>
+        <ul className="mt-3 space-y-2">
+          <Requirement done={done} label="Identity documents" />
+          {needsPhoto && (
+            <Requirement done={hasPhoto} label="Profile photo"
+              note="Required for freelancers by the security rules." />
+          )}
+          <Requirement done={Boolean(user.kyc.depositPaid)}
+            label={`Deposit — ${money(DEPOSIT_CENTS[user.role])}`} />
+        </ul>
+        {allClear && (
+          <Link href={'/dashboard' as Route}
+            className="mt-4 inline-block rounded-button bg-ink-strong px-4 py-2.5 text-sm font-bold text-canvas">
+            Go to your dashboard →
+          </Link>
+        )}
+      </div>
 
       <section className="mt-8">
         <SectionLabel>Identity</SectionLabel>
@@ -296,24 +329,42 @@ export default function Verify() {
               ? 'A refundable trust bond, released after your first completed job.'
               : 'A job-posting balance — your money, spent into escrow when you hire.'}
           </p>
-          <p className="mt-3 text-xs text-ink-faint">
-            Payment runs through the external gateway from the Android app for
-            now. The web checkout needs the server webhook that marks an intent
-            paid — the client cannot mark its own payment cleared, by design.
-            See docs/PAYMENTS.md.
-          </p>
+          {/* Never leave this screen without saying what happens next. A
+              deposit that cannot be paid and does not explain itself is a dead
+              end, and this is the last gate before the product. */}
+          {!user.kyc.depositPaid && !demo && (
+            <div className="mt-4 rounded-field border border-amber/40 bg-amber-tint p-3">
+              <p className="text-xs font-semibold">
+                There is no card checkout on the web yet
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                Clearing a deposit needs a payment gateway webhook running on a
+                server — an account is never allowed to mark its own payment as
+                received, which is the rule that makes escrow mean anything.
+                Until that server exists, this gate opens only for accounts on
+                the demo allowlist.
+              </p>
+              <p className="mt-2 text-xs text-ink-muted">
+                To unblock <strong>{user.email}</strong>: add it to{' '}
+                <code className="rounded bg-canvas px-1 py-0.5">isDemoAccount()</code>{' '}
+                in <code className="rounded bg-canvas px-1 py-0.5">firebase/firestore.rules</code>{' '}
+                and to <code className="rounded bg-canvas px-1 py-0.5">src/lib/demo.ts</code>,
+                then publish the rules again.
+              </p>
+            </div>
+          )}
 
           {demo && !user.kyc.depositPaid && (
-            <div className="mt-4 rounded-field border border-amber/40 bg-amber-tint p-3">
-              <p className="text-xs font-semibold">Demo account</p>
+            <div className="mt-4 rounded-field border border-teal/40 bg-teal-tint p-3">
+              <p className="text-xs font-semibold">Demo account — skip the payment</p>
               <p className="mt-1 text-xs text-ink-muted">
                 This address is on the demo allowlist in the security rules, so
                 it can clear its own deposit without paying. Every other account
                 is refused this by the server, not by hiding the button.
               </p>
-              <Button className="mt-3 w-full" variant="secondary" busy={busy}
+              <Button className="mt-3 w-full" busy={busy}
                 onClick={clearDeposit}>
-                Clear deposit without paying (demo)
+                Clear deposit now — no payment
               </Button>
             </div>
           )}
@@ -329,6 +380,28 @@ export default function Verify() {
         )}
       </section>
     </div>
+  );
+}
+
+function Requirement({ done, label, note }: {
+  done: boolean; label: string; note?: string;
+}) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+        done ? 'bg-teal text-white' : 'border border-border-strong text-transparent'
+      }`}>
+        ✓
+      </span>
+      <span>
+        <span className={`block text-sm ${done ? 'text-ink-muted line-through' : 'font-medium'}`}>
+          {label}
+        </span>
+        {note && !done && (
+          <span className="mt-0.5 block text-xs text-ink-faint">{note}</span>
+        )}
+      </span>
+    </li>
   );
 }
 

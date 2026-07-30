@@ -67,6 +67,9 @@ service cloud.firestore {
     function isDemoAccount() {
       return signedIn()
         && request.auth.token.email in [
+          // The owner's own account, so the product can be walked end to end
+          // without registering a separate address first.
+          'ktahan629@gmail.com',
           'demo@felicek.app',
           // Second seat, so both sides of a transaction can be demonstrated:
           // one posts, the other bids. A job cannot be created on another

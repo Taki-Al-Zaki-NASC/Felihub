@@ -22,6 +22,9 @@
  * convenience.
  */
 export const DEMO_ACCOUNTS: readonly string[] = [
+  // The owner's own account, so the product can be walked end to end without
+  // registering a separate address first.
+  'ktahan629@gmail.com',
   'demo@felicek.app',
   // A second address so both sides of the marketplace can be walked: post as
   // one, bid as the other. A job cannot be created on someone else's behalf —
