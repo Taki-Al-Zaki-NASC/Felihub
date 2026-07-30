@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
+import { meetsMandatoryRequirements, type AppUser } from '@/lib/types';
 import { signOut } from '@/lib/auth-actions';
 import { Wordmark } from './ui';
 
@@ -16,16 +17,32 @@ import { Wordmark } from './ui';
  * links and two actions into one row is what made the header unusable on a
  * small screen.
  */
-const LINKS: { href: Route; label: string; icon: React.ReactNode }[] = [
-  { href: '/dashboard' as Route, label: 'Home', icon: <IconHome /> },
-  { href: '/jobs' as Route, label: 'Jobs', icon: <IconBriefcase /> },
-  { href: '/messages' as Route, label: 'Messages', icon: <IconChat /> },
-  { href: '/verify' as Route, label: 'Account', icon: <IconShield /> },
-];
+/**
+ * Destinations.
+ *
+ * The last one changes once the account clears: before, it is the thing
+ * standing between you and the product, so it says "Verify" and points at the
+ * gate. After, there is nothing left to verify and the same slot is where you
+ * manage who you are — named for the role, because "Account" told nobody
+ * whether they were looking at a client or a freelancer.
+ */
+function linksFor(user: AppUser | null): { href: Route; label: string; icon: React.ReactNode }[] {
+  const cleared = user ? meetsMandatoryRequirements(user) : false;
+  const profileLabel = user?.role === 'freelancer' ? 'Freelancer' : 'Client';
+  return [
+    { href: '/dashboard' as Route, label: 'Home', icon: <IconHome /> },
+    { href: '/jobs' as Route, label: 'Jobs', icon: <IconBriefcase /> },
+    { href: '/messages' as Route, label: 'Messages', icon: <IconChat /> },
+    cleared
+      ? { href: '/profile/setup' as Route, label: profileLabel, icon: <IconUser /> }
+      : { href: '/verify' as Route, label: 'Verify', icon: <IconShield /> },
+  ];
+}
 
 export function Nav() {
   const path = usePathname();
   const { user } = useSession();
+  const LINKS = linksFor(user);
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
 
   return (
@@ -100,6 +117,14 @@ function IconChat() {
   return (
     <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconUser() {
+  return (
+    <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
     </svg>
   );
 }

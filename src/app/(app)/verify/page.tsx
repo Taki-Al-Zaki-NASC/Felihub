@@ -12,7 +12,7 @@ import { prepareDocument } from '@/lib/image-web';
 import {
   clearDepositAsDemo, describeError, saveProfilePhoto, submitIdentity,
 } from '@/lib/mutations';
-import { DEPOSIT_CENTS, REQUIRES_PHOTO } from '@/lib/types';
+import { DEPOSIT_CENTS, REQUIRES_PHOTO, isVerified } from '@/lib/types';
 import { FREE_VERIFICATION, isDemoAccount } from '@/lib/demo';
 import { validateTd3Line2 } from '@/lib/document-validation';
 import { Button, Card, ErrorState, Pill, SectionLabel, money } from '@/components/ui';
@@ -82,7 +82,7 @@ export default function Verify() {
         return;
       }
       setFailed((f) => { const n = { ...f }; delete n.photo; return n; });
-      await saveProfilePhoto(user.uid, base64);
+      await saveProfilePhoto(user.uid, base64, isVerified(user));
     } catch (e) {
       setError(describeError(e));
     } finally {

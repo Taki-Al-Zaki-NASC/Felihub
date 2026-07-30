@@ -201,7 +201,18 @@ service cloud.firestore {
       allow create: if isSelf(uid) && request.resource.data.verified == false;
       allow update: if isSelf(uid)
         && (
-          request.resource.data.verified == resource.data.verified
+          // Documents written before `verified` existed have no such field,
+          // and reading a missing key is an evaluation error — which denied
+          // every later update and froze those profiles permanently, with no
+          // way out: the only other branch requires setting verified to true,
+          // which an unverified account may not do. This heals them. Setting
+          // it to true still requires actually being verified, so the badge
+          // cannot be self-issued through the repair.
+          (
+            !('verified' in resource.data)
+            && (request.resource.data.verified == false || isAccountVerified(uid))
+          )
+          || request.resource.data.verified == resource.data.verified
           || (
             request.resource.data.verified == true
             && isAccountVerified(uid)

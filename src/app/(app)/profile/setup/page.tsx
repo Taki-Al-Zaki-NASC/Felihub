@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from '@/lib/session';
+import { isVerified } from '@/lib/types';
 import { completeProfile, describeError } from '@/lib/mutations';
 import { signOut } from '@/lib/auth-actions';
 import { Button, ErrorState, Loading } from '@/components/ui';
@@ -40,6 +41,7 @@ export default function ProfileSetup() {
         skills: skillText.split(',').map((s) => s.trim()).filter(Boolean),
         hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
         role: user.role,
+        verified: isVerified(user),
       });
       // No redirect needed: the session snapshot moves the stage on, and the
       // gate routes from there.

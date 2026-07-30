@@ -324,7 +324,7 @@ export async function clearDepositAsDemo(uid: string, amountCents: number) {
  * web could take a freelancer through identity and deposit and still leave
  * them unable to bid.
  */
-export async function saveProfilePhoto(uid: string, base64: string) {
+export async function saveProfilePhoto(uid: string, base64: string, verified = false) {
   const fb = firebase();
   if (!fb) throw new Error('Firebase is not configured.');
   const batch = writeBatch(fb.db);
@@ -332,7 +332,13 @@ export async function saveProfilePhoto(uid: string, base64: string) {
     profilePhotoBase64: base64, updatedAt: serverTimestamp(),
   }, { merge: true });
   batch.set(doc(fb.db, 'profiles', uid), {
-    photoBase64: base64, updatedAt: serverTimestamp(),
+    photoBase64: base64,
+    // Always sent, never omitted. The rule compares this field, and on a
+    // profile written before `verified` existed the comparison is against a
+    // missing key — an evaluation error, not a false. Omitting it is what
+    // made those profiles permanently unwritable.
+    verified,
+    updatedAt: serverTimestamp(),
   }, { merge: true });
   await batch.commit();
 }
@@ -364,6 +370,8 @@ export async function completeProfile(input: {
   skills: string[];
   hourlyRate: number | null;
   role: string;
+  /** Current verification state — see the note in saveProfilePhoto. */
+  verified?: boolean;
 }) {
   const fb = firebase();
   if (!fb) throw new Error('Firebase is not configured.');
@@ -389,6 +397,7 @@ export async function completeProfile(input: {
     uid: input.uid,
     role: input.role,
     ...shared,
+    verified: input.verified ?? false,
     updatedAt: serverTimestamp(),
   }, { merge: true });
   await batch.commit();
