@@ -6,7 +6,7 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
  * Firebase for the web.
  *
  * Deliberately NOT google-services.json — that file is Android-only. A web app
- * has to be registered separately in the same project (felicek-9b728), which
+ * has to be registered separately in the same project, which
  * yields the values below. Same project means the same Auth users, the same
  * Firestore documents, and the same security rules the 65 rules tests pin.
  *
@@ -26,6 +26,7 @@ const config = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     ?? process.env.NEXT_PUBLIC_FIREBASE_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 /** True once every required value is present. */
