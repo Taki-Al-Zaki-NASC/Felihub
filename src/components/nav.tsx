@@ -28,10 +28,15 @@ import { Wordmark } from './ui';
  */
 function linksFor(user: AppUser | null): { href: Route; label: string; icon: React.ReactNode }[] {
   const cleared = user ? meetsMandatoryRequirements(user) : false;
-  const profileLabel = user?.role === 'freelancer' ? 'Freelancer' : 'Client';
+  const hires = Boolean(user) && user!.role !== 'freelancer';
+  const profileLabel = hires ? 'Client' : 'Freelancer';
   return [
     { href: '/dashboard' as Route, label: 'Home', icon: <IconHome /> },
-    { href: '/jobs' as Route, label: 'Jobs', icon: <IconBriefcase /> },
+    // The two sides look for opposite things. A client browsing the jobs feed
+    // is looking at their own side of the market; what they need is people.
+    hires
+      ? { href: '/talent' as Route, label: 'Talent', icon: <IconUsers /> }
+      : { href: '/jobs' as Route, label: 'Jobs', icon: <IconBriefcase /> },
     { href: '/messages' as Route, label: 'Messages', icon: <IconChat /> },
     cleared
       ? { href: '/profile/setup' as Route, label: profileLabel, icon: <IconUser /> }
@@ -117,6 +122,15 @@ function IconChat() {
   return (
     <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconUsers() {
+  return (
+    <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" strokeLinecap="round" />
+      <path d="M16 5.5a3.2 3.2 0 0 1 0 5M17.5 14.2A6.5 6.5 0 0 1 21.5 20" strokeLinecap="round" />
     </svg>
   );
 }

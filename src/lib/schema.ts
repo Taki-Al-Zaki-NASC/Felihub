@@ -73,6 +73,29 @@ export interface Proposal {
   createdAt?: Timestamp;
 }
 
+/**
+ * The public half of an account — `profiles/{uid}`, world-readable by rule.
+ *
+ * Deliberately separate from `users/{uid}`, which is owner-only and holds the
+ * email, the identity reference and the balances. Nothing here is private, so
+ * a directory can be built from it without exposing anything the account did
+ * not choose to publish.
+ */
+export interface PublicProfile {
+  id: string;
+  uid: string;
+  displayName?: string;
+  role?: string;
+  title?: string;
+  bio?: string;
+  location?: string;
+  skills?: string[];
+  hourlyRateCents?: number | null;
+  photoBase64?: string | null;
+  verified?: boolean;
+  updatedAt?: Timestamp;
+}
+
 export interface ChatThread {
   id: string;
   /** The uids, and the field every chat rule authorises against. */

@@ -100,11 +100,16 @@ function ClientHome({ user }: { user: AppUser }) {
       </div>
 
       <section className="mt-9">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <SectionLabel>Your listings</SectionLabel>
-          <Link href={'/jobs/new' as Route} className="text-xs font-bold text-teal-deep">
-            Post a job
-          </Link>
+          <span className="flex gap-4">
+            <Link href={'/talent' as Route} className="text-xs font-bold text-teal-deep">
+              Browse talent
+            </Link>
+            <Link href={'/jobs/new' as Route} className="text-xs font-bold text-teal-deep">
+              Post a job
+            </Link>
+          </span>
         </div>
         <div className="mt-3 space-y-3">
           {rows.length === 0 ? (

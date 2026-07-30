@@ -127,3 +127,13 @@ export const proposalsForJob = (jobId: string, ownerId: string) =>
 
 export const myChats = (uid: string) =>
   [where('participantIds', 'array-contains', uid)];
+
+/**
+ * The freelancer directory, for the hiring side.
+ *
+ * `profiles/{uid}` is world-readable, so this needs no special access — and
+ * an equality filter on its own rides the automatic single-field index, so it
+ * needs no composite index either. Ordering is client-side, as everywhere.
+ */
+export const freelancerProfiles = (max = 100) =>
+  [where('role', '==', 'freelancer'), fbLimit(max)];
