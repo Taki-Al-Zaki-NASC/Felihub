@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from '@/lib/session';
 import { Button, ErrorState, Loading, Wordmark } from './ui';
-import { signOut } from '@/lib/auth-actions';
+import { describeAuthError, repairAccountRecord, signOut } from '@/lib/auth-actions';
+import type { UserRoleKey } from '@/lib/types';
 
 /**
  * Routing gate. The web mirror of _SessionGate in app/lib/app/app.dart.
@@ -40,6 +42,8 @@ export function Gate({ children }: { children: React.ReactNode }) {
       </Shell>
     );
   }
+
+  if (stage === 'noAccountRecord') return <RepairAccount />;
 
   if (stage === 'signedOut') {
     return (
@@ -91,6 +95,82 @@ export function Gate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
+/**
+ * Signed in with no account record behind it.
+ *
+ * Recoverable, and worth recovering in place: the email is already taken by
+ * the Auth user, so "sign up again" is not available to the person this
+ * happened to.
+ */
+function RepairAccount() {
+  const [role, setRole] = useState<UserRoleKey>('freelancer');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function repair() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await repairAccountRecord(role, name);
+      // No navigation needed: the users/{uid} listener fires on the new
+      // document and the session moves to onboarding by itself.
+    } catch (e) {
+      setError(describeAuthError(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <h1 className="font-serif text-2xl font-semibold">Finish setting up</h1>
+      <p className="mt-2 text-sm text-ink-muted">
+        You are signed in, but this account has no profile behind it — sign-up
+        was interrupted before it finished writing. Pick how you will use
+        Felicek and it will be rebuilt. Nothing is lost; the account was never
+        completed.
+      </p>
+
+      <label className="mt-6 block">
+        <span className="text-xs font-semibold text-ink-muted">Your name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="Leave blank to use your email name"
+          className="mt-1.5 w-full rounded-field border border-border bg-surface px-3.5 py-3 text-base outline-none focus:border-teal sm:text-sm" />
+      </label>
+
+      <fieldset className="mt-4">
+        <legend className="text-xs font-semibold text-ink-muted">Account type</legend>
+        <div className="mt-2 grid gap-2">
+          {ROLE_CHOICES.map((r) => (
+            <button type="button" key={r.key} onClick={() => setRole(r.key)}
+              aria-pressed={role === r.key}
+              className={`rounded-card border px-4 py-3 text-left transition ${
+                role === r.key ? 'border-teal bg-teal-tint' : 'border-border bg-surface'
+              }`}>
+              <span className="block text-sm font-semibold">{r.label}</span>
+              <span className="mt-0.5 block text-xs text-ink-muted">{r.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {error && <div className="mt-4"><ErrorState message={error} /></div>}
+
+      <Button className="mt-5 w-full" busy={busy} onClick={repair}>
+        Rebuild my account
+      </Button>
+      <SignOutLink />
+    </Shell>
+  );
+}
+
+const ROLE_CHOICES: { key: UserRoleKey; label: string; blurb: string }[] = [
+  { key: 'freelancer', label: 'Freelancer', blurb: 'Bid on work. Refundable $20 trust bond.' },
+  { key: 'client', label: 'Client', blurb: 'Post jobs. $50 posting balance.' },
+  { key: 'agency', label: 'Agency', blurb: 'Hire as a team. $50 posting balance.' },
+  { key: 'startup', label: 'Startup', blurb: 'Build a team. $50 posting balance.' },
+];
 
 /** Always offer a way out of a blocking screen, or it is a trap. */
 function SignOutLink() {

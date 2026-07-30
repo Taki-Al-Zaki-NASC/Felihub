@@ -6,7 +6,11 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { firebase } from './firebase';
 import type { AppUser } from './types';
 
-type Stage = 'booting' | 'signedOut' | 'onboarding' | 'verification' | 'ready' | 'stalled';
+type Stage =
+  | 'booting' | 'signedOut' | 'onboarding' | 'verification' | 'ready'
+  | 'stalled'
+  /** Signed in, but `users/{uid}` is missing — recoverable, see gate.tsx. */
+  | 'noAccountRecord';
 
 interface Session {
   stage: Stage;
@@ -65,7 +69,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         doc(fb.db, 'users', fbUser.uid),
         (snap) => {
           clearTimeout(watchdog);
-          if (!snap.exists()) return; // watchdog handles a doc that never lands
+          if (!snap.exists()) {
+            // Authenticated, but there is no account record behind it.
+            //
+            // This used to `return` after the watchdog had already been
+            // cleared, which left the stage on 'booting' permanently — the
+            // sign-in button completed and nothing on screen ever changed,
+            // with no error and no timeout. That is the "clicking sign in
+            // does nothing" report.
+            //
+            // It happens to any account whose creation batch failed partway
+            // (Auth succeeded, Firestore did not). Rather than stranding it,
+            // say so and offer the repair — the account may legitimately
+            // create its own record, so this is recoverable without support.
+            setSession({ stage: 'noAccountRecord', user: null, error: null });
+            return;
+          }
           const user = { uid: snap.id, ...snap.data() } as AppUser;
           setSession({ stage: stageFor(user), user, error: null });
         },

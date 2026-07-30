@@ -1,25 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { RedirectWhenSignedIn } from '@/components/auth-redirect';
-import { describeAuthError, signIn } from '@/lib/auth-actions';
+import { describeAuthError, rememberedEmail, signIn } from '@/lib/auth-actions';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Prefill from the last remembered sign-in. Read in an effect rather than in
+  // useState's initialiser: localStorage does not exist during the server
+  // render, and reading it inline would make the first client render disagree
+  // with the server's and trip a hydration error.
+  useEffect(() => {
+    const saved = rememberedEmail();
+    if (saved) setEmail(saved);
+    else setRemember(false);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setBusy(true); setError(null);
     try {
-      await signIn(email, password);
+      await signIn(email, password, remember);
+      // Deliberately not clearing `busy` on success. The redirect happens when
+      // the session resolves, a moment later; releasing the button first makes
+      // the form look idle and finished while it is neither, which reads as a
+      // dead button. The failure path below re-enables it.
     } catch (err) {
       setError(describeAuthError(err));
-    } finally {
       setBusy(false);
     }
   }
@@ -33,6 +47,20 @@ export default function SignIn() {
       <form onSubmit={submit} className="mt-8 space-y-4">
         <Field label="Email" type="email" value={email} onChange={setEmail} />
         <Field label="Password" type="password" value={password} onChange={setPassword} />
+
+        <label className="flex items-start gap-2.5 py-1">
+          <input type="checkbox" checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-teal" />
+          <span>
+            <span className="block text-sm font-medium">Keep me signed in</span>
+            <span className="mt-0.5 block text-xs text-ink-muted">
+              {remember
+                ? 'Stays signed in after you close the browser.'
+                : 'Signs out when you close this tab — use this on a shared computer.'}
+            </span>
+          </span>
+        </label>
 
         {error && (
           <p role="alert" className="rounded-field bg-danger-tint px-3 py-2 text-sm text-danger">
