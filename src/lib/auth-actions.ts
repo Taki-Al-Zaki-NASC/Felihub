@@ -86,7 +86,16 @@ export async function signUp(
     updatedAt: serverTimestamp(),
   });
   batch.set(doc(fb.db, 'profiles', uid), {
-    uid, displayName: name, role, createdAt: serverTimestamp(),
+    uid,
+    displayName: name,
+    role,
+    // Required by the rule (`verified == false` on create), not optional.
+    // Firestore rules raise an evaluation error on a missing key rather than
+    // reading it as undefined, so omitting this denied the whole batch — and
+    // because it shares a batch with users/{uid}, no web sign-up could write
+    // either document.
+    verified: false,
+    createdAt: serverTimestamp(),
   });
   await batch.commit();
 }
