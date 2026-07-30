@@ -31,7 +31,7 @@ export function JobRow({ job, owner = false }: { job: Job; owner?: boolean }) {
             {job.budget && <p className="font-semibold">{job.budget}</p>}
             {owner && (
               <p className="mt-1 text-xs text-ink-faint">
-                {job.proposalCount ?? 0} proposal{(job.proposalCount ?? 0) === 1 ? '' : 's'}
+                {job.proposalsCount ?? 0} proposal{(job.proposalsCount ?? 0) === 1 ? '' : 's'}
               </p>
             )}
           </div>

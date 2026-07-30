@@ -33,7 +33,7 @@ function ClientHome({ uid, name }: { uid: string; name: string }) {
 
   const open = jobs.data.filter((j) => (j.status ?? 'open') === 'open');
   const escrow = jobs.data.reduce((sum, j) => sum + (j.escrowHeldCents ?? 0), 0);
-  const proposals = jobs.data.reduce((sum, j) => sum + (j.proposalCount ?? 0), 0);
+  const proposals = jobs.data.reduce((sum, j) => sum + (j.proposalsCount ?? 0), 0);
 
   return (
     <>

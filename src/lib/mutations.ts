@@ -53,7 +53,7 @@ export async function postJob(input: {
     skills: input.skills,
     milestones: input.milestones,
     status: 'open',
-    proposalCount: 0,
+    proposalsCount: 0,
     shortlisted: 0,
     views: 0,
     escrowHeldCents: 0,
@@ -90,7 +90,11 @@ export async function submitProposal(input: {
     tx.set(ref, {
       jobId: input.job.id,
       jobTitle: input.job.title,
-      ownerId: input.job.ownerId,
+      // `jobOwnerId` is what the create rule cross-checks against the job
+      // document, and what the read rule authorises the owner by. Writing
+      // `ownerId` instead meant the rule read a key that was not there, which
+      // is an evaluation error, so no bid could ever be submitted.
+      jobOwnerId: input.job.ownerId,
       freelancerId: input.freelancerId,
       freelancerName: input.freelancerName,
       bidAmountCents: input.bidAmountCents,
@@ -100,8 +104,9 @@ export async function submitProposal(input: {
     }, { merge: true });
 
     // Only count a genuinely new proposal, or a resubmit inflates the tally.
+    // `proposalsCount` is the only spelling a non-owner is allowed to touch.
     if (!existing.exists()) {
-      tx.update(doc(fb.db, 'jobs', input.job.id), { proposalCount: increment(1) });
+      tx.update(doc(fb.db, 'jobs', input.job.id), { proposalsCount: increment(1) });
     }
   });
   return id;
@@ -153,8 +158,13 @@ export async function openThread(input: {
   if (!fb) throw new Error('Firebase is not configured.');
   const id = chatIdFor(input.meId, input.otherId, input.jobId);
   await setDoc(doc(fb.db, 'chats', id), {
-    participants: [input.meId, input.otherId].sort(),
-    participantNames: { [input.meId]: input.meName, [input.otherId]: input.otherName },
+    // `participantIds` is the array the rules test — both on this document
+    // (`request.auth.uid in resource.data.participantIds`) and on every
+    // message beneath it. It was previously written as `participants`, a name
+    // nothing in the rules reads, so every chat read, write and message was
+    // denied. `participants` is the {uid: name} map, a different shape.
+    participantIds: [input.meId, input.otherId].sort(),
+    participants: { [input.meId]: input.meName, [input.otherId]: input.otherName },
     jobId: input.jobId ?? null,
     jobTitle: input.jobTitle ?? null,
     updatedAt: serverTimestamp(),

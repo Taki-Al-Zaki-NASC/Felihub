@@ -105,7 +105,7 @@ export function ProposalForm({ job }: { job: Job }) {
               bidAmountCents: cents, note,
             });
             setMine({
-              id, jobId: job.id, freelancerId: user.uid,
+              id, jobId: job.id, jobOwnerId: job.ownerId, freelancerId: user.uid,
               freelancerName: user.displayName, status: 'submitted',
               bidAmountCents: cents, note,
             });

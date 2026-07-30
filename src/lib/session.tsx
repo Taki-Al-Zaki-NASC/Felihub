@@ -71,7 +71,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         },
         (e) => {
           clearTimeout(watchdog);
-          setSession({ stage: 'stalled', user: null, error: e.message });
+          setSession({ stage: 'stalled', user: null, error: describeReadFailure(e) });
         },
       );
     });
@@ -82,6 +82,31 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
     <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
   );
+}
+
+/**
+ * Turns a failed profile read into a sentence that says what to do.
+ *
+ * This used to be `e.message`, which put Firestore's raw "Missing or
+ * insufficient permissions." on screen — accurate, and useless. That string
+ * has exactly one cause here: `users/{uid}`'s read rule is `isSelf(uid)`, so a
+ * signed-in account reading its own record cannot be refused by the rules in
+ * this repo. Being refused anyway means the rules being enforced are not these
+ * rules — either the database is still in locked mode, or
+ * `firebase deploy --only firestore:rules` has not been run for this project.
+ */
+function describeReadFailure(e: { code?: string; message?: string }): string {
+  if (e.code === 'permission-denied') {
+    return 'Firestore refused to read your account. The security rules have '
+      + 'not been deployed to this Firebase project yet — run '
+      + '`firebase deploy --only firestore:rules,firestore:indexes` from the '
+      + 'firebase/ directory. (A database left in locked mode denies every '
+      + 'read, including your own profile.)';
+  }
+  if (e.code === 'unavailable') {
+    return 'Could not reach the database. Check your connection and try again.';
+  }
+  return 'Your account could not be loaded. Please try again.';
 }
 
 function stageFor(u: AppUser): Stage {

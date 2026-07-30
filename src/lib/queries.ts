@@ -69,8 +69,22 @@ export const myJobs = (uid: string) =>
 export const myProposals = (uid: string) =>
   [where('freelancerId', '==', uid), orderBy('createdAt', 'desc')];
 
-export const proposalsForJob = (jobId: string) =>
-  [where('jobId', '==', jobId), orderBy('createdAt', 'desc')];
+/**
+ * Applicants on one listing, for the owner.
+ *
+ * Scoped by `jobOwnerId` as well as `jobId`, and that is not redundant.
+ * Firestore rules are not filters: a query is refused outright unless its
+ * constraints prove every document it could return is readable. The proposal
+ * read rule allows the bidder or the job owner, so `jobId` alone proves
+ * neither and the whole query was denied — which surfaced as an empty
+ * applicant list on a job that had bids.
+ */
+export const proposalsForJob = (jobId: string, ownerId: string) =>
+  [
+    where('jobId', '==', jobId),
+    where('jobOwnerId', '==', ownerId),
+    orderBy('createdAt', 'desc'),
+  ];
 
 export const myChats = (uid: string) =>
-  [where('participants', 'array-contains', uid), orderBy('lastMessageAt', 'desc')];
+  [where('participantIds', 'array-contains', uid), orderBy('lastMessageAt', 'desc')];

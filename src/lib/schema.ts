@@ -31,7 +31,14 @@ export interface Job {
   budgetValue?: number;
   status?: JobStatus;
   milestones?: Milestone[];
-  proposalCount?: number;
+  /**
+   * `proposalsCount`, not `proposalCount`. The name is load-bearing: a bidder
+   * is not the job owner, so their increment is only permitted by the rule's
+   * `onlyFieldsChanged(['views', 'shortlisted', 'proposalsCount'])` branch.
+   * Writing the singular spelling fell outside that allow-list and denied the
+   * whole submit-proposal transaction.
+   */
+  proposalsCount?: number;
   shortlisted?: number;
   views?: number;
   hiredProposalId?: string | null;
@@ -45,6 +52,13 @@ export interface Proposal {
   id: string;
   jobId: string;
   jobTitle?: string;
+  /**
+   * The job owner's uid. Named `jobOwnerId` because that is the field the
+   * rules read, both to authorise the create and to decide who may read the
+   * proposal back. It was previously written as `ownerId`, which the rules
+   * never look at — so every bid was denied.
+   */
+  jobOwnerId: string;
   freelancerId: string;
   freelancerName: string;
   status: ProposalStatus;
@@ -61,8 +75,10 @@ export interface Proposal {
 
 export interface ChatThread {
   id: string;
-  participants: string[];
-  participantNames?: Record<string, string>;
+  /** The uids, and the field every chat rule authorises against. */
+  participantIds: string[];
+  /** Denormalised {uid: displayName}, so a thread list needs no extra reads. */
+  participants?: Record<string, string>;
   jobId?: string | null;
   jobTitle?: string | null;
   lastMessage?: string;

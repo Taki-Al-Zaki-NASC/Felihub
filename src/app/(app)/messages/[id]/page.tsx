@@ -67,8 +67,8 @@ export default function Thread({ params }: { params: Promise<{ id: string }> }) 
 
   if (!user) return <Loading />;
 
-  const otherId = thread?.participants.find((p) => p !== user.uid) ?? '';
-  const otherName = thread?.participantNames?.[otherId] ?? 'Felicek user';
+  const otherId = thread?.participantIds?.find((p) => p !== user.uid) ?? '';
+  const otherName = thread?.participants?.[otherId] ?? 'Felicek user';
 
   async function send(e: React.FormEvent) {
     e.preventDefault();

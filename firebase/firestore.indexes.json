@@ -62,6 +62,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "jobId", "order": "ASCENDING" },
+        { "fieldPath": "jobOwnerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "jobId", "order": "ASCENDING" },
         { "fieldPath": "freelancerId", "order": "ASCENDING" }
       ]
     },

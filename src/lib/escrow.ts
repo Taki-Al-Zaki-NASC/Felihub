@@ -155,12 +155,24 @@ export async function releaseMilestone(
   });
 
   // Hand over the clean, un-watermarked deliverables now that this is paid.
-  // Best-effort: a failure here must not unwind a completed payment.
+  //
+  // This only succeeds when the caller is the sender of those files — the
+  // rule is `isSelf(request.resource.data.senderId)`, and the person
+  // releasing a milestone is the client, not the freelancer who uploaded
+  // them. So from a client's browser this is expected to fail, and it is
+  // caught rather than allowed to unwind a payment that already completed.
+  //
+  // Letting the recipient flip `released` themselves is not the fix: that is
+  // exactly the "take the file without paying" hole the flag exists to close.
+  // The real fix is a Cloud Function releasing it with the Admin SDK, which
+  // needs the Blaze plan — the same server that has to exist for the payment
+  // webhook anyway. Until then the freelancer's own client releases on next
+  // open, since they are the sender and may write.
   try {
     const { releaseDeliverables } = await import('./deliverables');
     await releaseDeliverables(chatIdFor(job.ownerId, proposal.freelancerId, job.id));
   } catch {
-    // The money moved; the file handover can be retried from the thread.
+    // Expected from the client side. The money moved regardless.
   }
 
   return { amountCents, feeCents, netCents, isFinal };

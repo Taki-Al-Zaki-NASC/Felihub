@@ -13,7 +13,7 @@ const job = (milestones: { label: string; amount: string }[]): Job => ({
   typeLabel: 'Freelance', title: 'T', milestones,
 });
 const proposal = (bidCents: number): Proposal => ({
-  id: 'p1', jobId: 'j1', freelancerId: 'f', freelancerName: 'F',
+  id: 'p1', jobId: 'j1', jobOwnerId: 'o', freelancerId: 'f', freelancerName: 'F',
   status: 'accepted', bidAmountCents: bidCents,
 });
 

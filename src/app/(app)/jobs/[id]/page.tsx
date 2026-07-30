@@ -47,7 +47,8 @@ export default function JobDetail({ params }: { params: Promise<{ id: string }> 
 }
 
 function OwnerView({ job }: { job: Job }) {
-  const proposals = useCollection<Proposal>('proposals', proposalsForJob(job.id), [job.id]);
+  const proposals = useCollection<Proposal>(
+    'proposals', proposalsForJob(job.id, job.ownerId), [job.id, job.ownerId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

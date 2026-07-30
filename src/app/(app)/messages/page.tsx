@@ -29,8 +29,8 @@ export default function Inbox() {
           <EmptyState title="No conversations yet"
             message="Messaging opens when you are hired, or when a client reaches out about a proposal." />
         ) : data.map((t) => {
-          const otherId = t.participants.find((p) => p !== user.uid) ?? '';
-          const name = t.participantNames?.[otherId] ?? 'Felicek user';
+          const otherId = t.participantIds?.find((p) => p !== user.uid) ?? '';
+          const name = t.participants?.[otherId] ?? 'Felicek user';
           const unread = isUnread(t, user.uid);
           return (
             <Link key={t.id} href={`/messages/${t.id}` as Route} className="block">
