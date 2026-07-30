@@ -23,6 +23,11 @@
  */
 export const DEMO_ACCOUNTS: readonly string[] = [
   'demo@felicek.app',
+  // A second address so both sides of the marketplace can be walked: post as
+  // one, bid as the other. A job cannot be created on someone else's behalf —
+  // the rules require isSelf(ownerId) — so seeing a listing from the outside
+  // genuinely needs a second account.
+  'demo.freelancer@felicek.app',
 ];
 
 export function isDemoAccount(email: string | null | undefined): boolean {

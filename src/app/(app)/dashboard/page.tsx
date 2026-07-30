@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
+import { isDemoAccount } from '@/lib/demo';
 import { useCollection, myJobs, myProposals, openJobs, byNewest } from '@/lib/queries';
 import type { Job, Proposal } from '@/lib/schema';
 import { EmptyState, ErrorState, Loading, SectionLabel, Stat, money } from '@/components/ui';
@@ -19,8 +20,24 @@ export default function Dashboard() {
   const { user } = useSession();
   if (!user) return <Loading />;
   const posts = user.role !== 'freelancer';
-  return posts ? <ClientHome uid={user.uid} name={user.displayName} />
-               : <FreelancerHome uid={user.uid} name={user.displayName} />;
+  return (
+    <>
+      {isDemoAccount(user.email) && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-amber/40 bg-amber-tint px-4 py-3">
+          <p className="text-xs">
+            <strong>Demo account.</strong> Deposits can be cleared without
+            paying, and sample listings are available.
+          </p>
+          <Link href={'/seed' as Route}
+            className="text-xs font-bold text-teal-deep">
+            Load sample data →
+          </Link>
+        </div>
+      )}
+      {posts ? <ClientHome uid={user.uid} name={user.displayName} />
+             : <FreelancerHome uid={user.uid} name={user.displayName} />}
+    </>
+  );
 }
 
 function ClientHome({ uid, name }: { uid: string; name: string }) {
