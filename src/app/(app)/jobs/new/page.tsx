@@ -110,7 +110,7 @@ export default function PostJob() {
             {TYPES.map((t) => (
               <button key={t.key} type="button" onClick={() => setType(t)}
                 aria-pressed={type.key === t.key}
-                className={`rounded-[9px] px-3 py-1.5 text-xs font-semibold transition ${
+                className={`min-h-[36px] rounded-[9px] px-3.5 text-xs font-semibold transition ${
                   type.key === t.key ? 'bg-violet text-white' : 'bg-violet-tint text-violet'
                 }`}>
                 {t.label}

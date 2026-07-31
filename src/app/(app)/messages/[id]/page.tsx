@@ -79,6 +79,7 @@ export default function Thread({ params }: { params: Promise<{ id: string }> }) 
     try {
       await sendMessage({
         chatId: id, senderId: user.uid, senderName: user.displayName, text,
+        recipientId: otherId || null,
       });
       setError(null);
     } catch (err) {

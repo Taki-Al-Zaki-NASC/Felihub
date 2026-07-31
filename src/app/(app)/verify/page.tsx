@@ -201,7 +201,7 @@ export default function Verify() {
             <div className="mt-3 flex flex-wrap gap-2">
               {PRIMARY_DOCUMENTS.map((t) => (
                 <button key={t} onClick={() => setType(t)} aria-pressed={type === t}
-                  className={`rounded-[9px] px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`min-h-[36px] rounded-[9px] px-3.5 text-xs font-semibold transition ${
                     type === t ? 'bg-teal text-white' : 'bg-backdrop text-ink-muted'
                   }`}>
                   {DOCUMENT_LABELS[t]}

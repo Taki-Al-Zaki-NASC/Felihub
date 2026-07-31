@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
+import { useCollection } from '@/lib/queries';
+import type { AppNotification } from '@/lib/notifications';
 import { meetsMandatoryRequirements, type AppUser } from '@/lib/types';
 import { signOut } from '@/lib/auth-actions';
 import { Wordmark } from './ui';
@@ -48,6 +50,11 @@ export function Nav() {
   const path = usePathname();
   const { user } = useSession();
   const LINKS = linksFor(user);
+  // Unread count for the bell. Reads the same collection the notifications
+  // page does, so the badge and the list cannot disagree.
+  const notes = useCollection<AppNotification>(
+    user ? `users/${user.uid}/notifications` : null, [], [user?.uid]);
+  const unread = notes.data.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
 
   return (
@@ -70,12 +77,22 @@ export function Nav() {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3 md:ml-0">
-            <span className="hidden max-w-[10rem] truncate text-sm font-medium text-ink-muted sm:block">
+          <div className="ml-auto flex items-center gap-2 md:ml-0 md:gap-3">
+            <span className="hidden max-w-[10rem] truncate text-sm font-medium text-ink-muted lg:block">
               {user?.displayName ?? ''}
             </span>
+            <Link href={'/notifications' as Route} aria-label={
+              unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+              className="relative flex min-h-[36px] items-center rounded-[9px] px-2.5 text-ink-muted hover:bg-backdrop">
+              <IconBell />
+              {unread > 0 && (
+                <span className="absolute right-1 top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-teal px-1 text-[10px] font-bold text-white">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </Link>
             <button onClick={() => void signOut()}
-              className="rounded-[9px] px-2 py-1.5 text-xs font-semibold text-ink-faint hover:bg-backdrop hover:text-danger">
+              className="flex min-h-[36px] items-center rounded-[9px] px-3 text-xs font-semibold text-ink-faint hover:bg-backdrop hover:text-danger">
               Sign out
             </button>
           </div>
@@ -122,6 +139,14 @@ function IconChat() {
   return (
     <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconBell() {
+  return (
+    <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" strokeLinejoin="round" />
+      <path d="M10.3 20a2 2 0 0 0 3.4 0" strokeLinecap="round" />
     </svg>
   );
 }

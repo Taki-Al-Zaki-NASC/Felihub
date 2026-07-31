@@ -3,6 +3,7 @@ import {
   serverTimestamp, setDoc, updateDoc, writeBatch,
 } from 'firebase/firestore';
 import { firebase } from './firebase';
+import { notify } from './notifications';
 import type { Job, Milestone, Proposal } from './schema';
 import type { CheckResult, DocumentType } from './identity-check';
 
@@ -109,6 +110,18 @@ export async function submitProposal(input: {
       tx.update(doc(fb.db, 'jobs', input.job.id), { proposalsCount: increment(1) });
     }
   });
+
+  void notify({
+    toUid: input.job.ownerId,
+    kind: 'proposal',
+    title: 'New proposal',
+    body: `${input.freelancerName} bid on "${input.job.title}".`,
+    jobId: input.job.id,
+    proposalId: id,
+    actorId: input.freelancerId,
+    actorName: input.freelancerName,
+  });
+
   return id;
 }
 
@@ -200,6 +213,8 @@ export async function openThread(input: {
  */
 export async function sendMessage(input: {
   chatId: string; senderId: string; senderName: string; text: string;
+  /** Optional: who to notify. Omitted when the caller does not know it. */
+  recipientId?: string | null;
 }) {
   const fb = firebase();
   if (!fb) throw new Error('Firebase is not configured.');
@@ -217,6 +232,18 @@ export async function sendMessage(input: {
     lastMessage: body.length > 120 ? `${body.slice(0, 119)}\u2026` : body,
     lastMessageAt: serverTimestamp(),
   });
+
+  if (input.recipientId) {
+    void notify({
+      toUid: input.recipientId,
+      kind: 'message',
+      title: input.senderName,
+      body: body.length > 90 ? `${body.slice(0, 89)}\u2026` : body,
+      chatId: input.chatId,
+      actorId: input.senderId,
+      actorName: input.senderName,
+    });
+  }
 }
 
 /**

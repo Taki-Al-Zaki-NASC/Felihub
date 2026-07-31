@@ -81,13 +81,16 @@ export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal
               {typeof p.bidAmountCents === 'number' && (
                 <p className="font-serif text-lg font-semibold">{money(p.bidAmountCents)}</p>
               )}
+              {/* 40px tall, not 22. Hire is the most consequential control in
+                  the product and it was the smallest thing on the page — a
+                  mis-tap here either spends escrow or fails to. */}
               {(job.status ?? 'open') === 'open' && !job.hiredProposalId
                 && p.status !== 'withdrawn' && p.status !== 'declined' && (
-                <div className="mt-2 flex flex-col items-end gap-1.5">
+                <div className="mt-2.5 flex flex-col items-stretch gap-2">
                   <button
                     onClick={() => void toggle(p)}
                     disabled={busyId === p.id}
-                    className="rounded-[9px] bg-blue-tint px-2.5 py-1 text-[11px] font-semibold text-blue disabled:opacity-50"
+                    className="min-h-[40px] rounded-[9px] bg-blue-tint px-3.5 text-xs font-semibold text-blue transition hover:brightness-95 disabled:opacity-50"
                   >
                     {busyId === p.id ? '…'
                       : p.status === 'shortlisted' ? 'Shortlisted ✓' : 'Shortlist'}
@@ -95,7 +98,7 @@ export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal
                   <button
                     onClick={() => void hireThem(p)}
                     disabled={busyId === p.id}
-                    className="rounded-[9px] bg-ink-strong px-2.5 py-1 text-[11px] font-semibold text-canvas disabled:opacity-50"
+                    className="min-h-[40px] rounded-[9px] bg-ink-strong px-3.5 text-xs font-semibold text-canvas transition hover:opacity-90 disabled:opacity-50"
                   >
                     Hire
                   </button>

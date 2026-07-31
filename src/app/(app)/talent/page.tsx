@@ -96,7 +96,7 @@ export default function Talent() {
               <button key={s} type="button"
                 onClick={() => setSkill(skill === s ? null : s)}
                 aria-pressed={skill === s}
-                className={`rounded-[9px] px-3 py-1.5 text-xs font-semibold transition ${
+                className={`min-h-[36px] rounded-[9px] px-3.5 text-xs font-semibold transition ${
                   skill === s ? 'bg-teal text-white' : 'bg-backdrop text-ink-muted hover:bg-border'
                 }`}>
                 {s} <span className="opacity-60">{n}</span>

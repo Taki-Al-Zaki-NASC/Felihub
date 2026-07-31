@@ -5,6 +5,7 @@ import { firebase } from './firebase';
 import { milestoneCents, type Job, type Proposal } from './schema';
 import { LOCAL, gatewayCharge, PLATFORM_RATE } from './fees';
 import { chatIdFor, openThread } from './mutations';
+import { notify } from './notifications';
 
 /** Thrown when the client cannot cover the bid. Carries a usable sentence. */
 export class InsufficientPostingBalance extends Error {}
@@ -59,6 +60,18 @@ export async function hire(job: Job, proposal: Proposal, meName: string) {
       escrowHeldCents: bid,
       updatedAt: serverTimestamp(),
     }, { merge: true });
+  });
+
+  void notify({
+    toUid: proposal.freelancerId,
+    kind: 'hire',
+    title: 'You have been hired',
+    body: `${meName} hired you for "${job.title}". Escrow is funded.`,
+    jobId: job.id,
+    proposalId: proposal.id,
+    chatId,
+    actorId: job.ownerId,
+    actorName: meName,
   });
 
   return chatId;
@@ -174,6 +187,15 @@ export async function releaseMilestone(
   } catch {
     // Expected from the client side. The money moved regardless.
   }
+
+  void notify({
+    toUid: proposal.freelancerId,
+    kind: 'milestone',
+    title: isFinal ? 'Final milestone released' : 'Milestone released',
+    body: `${milestone.label} — ${(netCents / 100).toFixed(2)} paid to you after fees.`,
+    jobId: job.id,
+    proposalId: proposal.id,
+  });
 
   return { amountCents, feeCents, netCents, isFinal };
 }
