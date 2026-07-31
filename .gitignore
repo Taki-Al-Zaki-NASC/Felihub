@@ -1,4 +1,6 @@
-.env.local
 node_modules/
 .next/
+.env
+.env.local
 tsconfig.tsbuildinfo
+/prisma/dev.db*

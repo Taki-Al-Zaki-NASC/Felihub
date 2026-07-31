@@ -1,23 +1,28 @@
 import type { Metadata, Viewport } from 'next';
-import { SessionProvider } from '@/lib/session';
+import { IBM_Plex_Sans, Newsreader } from 'next/font/google';
 import './globals.css';
 
+const plex = IBM_Plex_Sans({
+  subsets: ['latin'], weight: ['400', '500', '600', '700'],
+  variable: '--font-plex', display: 'swap',
+});
+const newsreader = Newsreader({
+  subsets: ['latin'], weight: ['500', '600', '700'],
+  variable: '--font-newsreader', display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Felicek — Verified talent. Zero spam. Fair fees, always.',
+  title: { default: 'Felicek — verified freelance marketplace', template: '%s · Felicek' },
   description:
-    'A verified freelance marketplace with escrow milestones, live skill '
-    + 'challenges and built-in calling.',
+    'Every account is identity-verified and deposit-backed before it can post '
+    + 'or bid. Escrow milestones and a flat 1% fee, itemised separately from '
+    + 'payment processing.',
 };
 
 /**
- * Without this, mobile browsers assume a ~980px desktop layout and scale the
- * whole page down — which makes every Tailwind breakpoint useless, because the
- * reported width is never small. This was missing, which is why the site read
- * as "not responsive" regardless of the classes on it.
- *
- * maximumScale is deliberately left alone: capping zoom is an accessibility
- * regression, and the input sizing fix (16px on phones) already removes the
- * reason people usually reach for it.
+ * Without this, mobile browsers assume a ~980px desktop width and scale the
+ * page down, which makes every responsive breakpoint moot. v1 shipped without
+ * it and read as "not responsive at all" no matter what the classes said.
  */
 export const viewport: Viewport = {
   width: 'device-width',
@@ -27,10 +32,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <SessionProvider>{children}</SessionProvider>
-      </body>
+    <html lang="en" className={`${plex.variable} ${newsreader.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

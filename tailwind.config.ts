@@ -1,9 +1,9 @@
 import type { Config } from 'tailwindcss';
 
-/// Lifted verbatim from app/lib/core/theme/tokens.dart. These are the same
-/// values the Android app renders, so the two surfaces cannot drift apart —
-/// if a colour changes, it changes in both places or neither.
+/// Felicek's identity, unchanged from v1: the same canvas/ink/teal tokens the
+/// Android app renders. Only the layout language changes in v2.
 export default {
+  darkMode: ['class'],
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
@@ -12,7 +12,10 @@ export default {
         backdrop: '#e9e6df',
         surface: '#ffffff',
         'neutral-tint': '#f2f0ea',
-        ink: { DEFAULT: '#1b2430', strong: '#1c2534', muted: '#5b6472', faint: '#8a92a0' },
+        ink: {
+          DEFAULT: '#1b2430', strong: '#1c2534',
+          muted: '#5b6472', faint: '#8a92a0',
+        },
         teal: { DEFAULT: '#0d9488', deep: '#0d7d74', tint: '#eaf6f4' },
         violet: { DEFAULT: '#8659c9', tint: '#f1eafb' },
         blue: { DEFAULT: '#2f5fa8', tint: '#eaf0fa' },
@@ -21,13 +24,19 @@ export default {
         border: { DEFAULT: 'rgba(27,36,48,.08)', strong: 'rgba(27,36,48,.12)' },
       },
       fontFamily: {
-        // Newsreader for the wordmark, job titles and screen titles; IBM Plex
-        // Sans for everything else. Same split as the app.
-        serif: ['Newsreader', 'Georgia', 'serif'],
-        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-newsreader)', 'Georgia', 'serif'],
+        sans: ['var(--font-plex)', 'system-ui', 'sans-serif'],
       },
-      borderRadius: { card: '16px', 'card-lg': '20px', field: '10px', button: '13px' },
+      borderRadius: { lg: '12px', md: '10px', sm: '8px' },
+      keyframes: {
+        'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
+        'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
+      },
+      animation: {
+        'accordion-down': 'accordion-down .2s ease-out',
+        'accordion-up': 'accordion-up .2s ease-out',
+      },
     },
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 } satisfies Config;

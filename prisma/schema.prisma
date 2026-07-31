@@ -1,0 +1,342 @@
+// Felicek — the business model as data.
+//
+// Two invariants drive most of this file and must survive any refactor:
+//
+//   1. An account is usable only when identity is on file AND the deposit has
+//      cleared. Both, for every role. There is no "skip for now".
+//   2. Money is never marked received by the party who owes it. Only the
+//      payment webhook writes PaymentIntent.status = PAID, and only a PAID
+//      intent can flip a deposit. That is what makes escrow mean anything.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Serverless opens a connection per invocation; the pooled URL is what
+  // stops Postgres running out of them. directUrl is used for migrations,
+  // which need a real session.
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  FREELANCER
+  CLIENT
+  AGENCY
+  STARTUP
+}
+
+enum KycStage {
+  NONE
+  ID_SUBMITTED
+  VERIFIED
+}
+
+enum JobStatus {
+  OPEN
+  FILLED
+  CLOSED
+}
+
+enum ProposalStatus {
+  SUBMITTED
+  SHORTLISTED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum DepositKind {
+  TRUST_BOND      // freelancer, refundable after the first completed job
+  POSTING_BALANCE // hirer, spent into escrow rather than consumed
+}
+
+enum LedgerKind {
+  DEPOSIT
+  ESCROW_HOLD
+  ESCROW_RELEASE
+  PLATFORM_FEE
+  GATEWAY_FEE
+  PAYOUT
+  REFUND
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  displayName   String
+  role          Role
+  passwordHash  String?
+  image         String?
+
+  // Verification. `isVerified` is deliberately NOT a stored column: it is
+  // derived (see server/services/verification.ts) so it cannot drift out of
+  // agreement with the three fields that define it, which is exactly the bug
+  // that shipped in v1.
+  idSubmitted   Boolean  @default(false)
+  kycStage      KycStage @default(NONE)
+  depositPaid   Boolean  @default(false)
+  depositCents  Int      @default(0)
+  depositKind   DepositKind?
+  depositReleased Boolean @default(false)
+
+  // Money, in cents. Never floats — a rounding error here is someone's wages.
+  walletBalanceCents Int @default(0)
+  postingBalanceCents Int @default(0)
+  totalEarnedCents   Int @default(0)
+
+  profile       Profile?
+  jobs          Job[]        @relation("JobOwner")
+  proposals     Proposal[]
+  ledger        LedgerEntry[]
+  paymentIntents PaymentIntent[]
+  reviewsWritten Review[]    @relation("ReviewAuthor")
+  reviewsAbout   Review[]    @relation("ReviewSubject")
+  memberships   ThreadMember[]
+  messages      Message[]
+  notifications Notification[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([role])
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  headline     String?
+  bio          String?  @db.Text
+  location     String?
+  hourlyRateCents Int?
+  skills       String[]
+  languages    String[]
+  portfolioUrl String?
+  experience   Json?    // ExperienceEntry[] — validated by Zod on write
+
+  // Mirrors the derived verification state for fast public reads. Written
+  // only by the server, never by the account it describes.
+  verified     Boolean  @default(false)
+  ratingAvg    Float?
+  ratingCount  Int      @default(0)
+
+  updatedAt    DateTime @updatedAt
+
+  @@index([verified])
+}
+
+model Job {
+  id            String    @id @default(cuid())
+  ownerId       String
+  owner         User      @relation("JobOwner", fields: [ownerId], references: [id])
+
+  title         String
+  description   String    @db.Text
+  category      String
+  skills        String[]
+  budgetCents   Int?
+  status        JobStatus @default(OPEN)
+
+  hiredProposalId String? @unique
+  escrowHeldCents Int     @default(0)
+  proposalsCount  Int     @default(0)
+  views           Int     @default(0)
+
+  milestones    Milestone[]
+  proposals     Proposal[]
+  challenge     Challenge?
+  threads       Thread[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([category, status])
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  label       String
+  amountCents Int
+  released    Boolean  @default(false)
+  releasedAt  DateTime?
+  position    Int
+
+  @@index([jobId, position])
+}
+
+model Proposal {
+  id             String         @id @default(cuid())
+  jobId          String
+  job            Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  freelancerId   String
+  freelancer     User           @relation(fields: [freelancerId], references: [id])
+
+  bidCents       Int
+  note           String         @db.Text
+  status         ProposalStatus @default(SUBMITTED)
+
+  // The owner-visible summary. The full submission lives in ChallengeAnswer
+  // and is never joined into a client-facing query.
+  answerPreview  String?
+  score          Int?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  answer         ChallengeAnswer?
+
+  // One bid per person per job. Re-submitting edits rather than stacking.
+  @@unique([jobId, freelancerId])
+  @@index([freelancerId, createdAt])
+  @@index([jobId, status])
+}
+
+model Challenge {
+  id        String  @id @default(cuid())
+  jobId     String  @unique
+  job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  mode      String  // "QUIZ" | "WRITTEN"
+  prompt    String? @db.Text
+  questions Json?   // [{ prompt, options }] — options public, key is not
+
+  // The answer key. Selected only by the job owner's own queries; never
+  // included in any payload sent to an applicant.
+  answerKey Json?
+
+  answers   ChallengeAnswer[]
+}
+
+model ChallengeAnswer {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  proposalId  String    @unique
+  proposal    Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  // The freelancer's full work. Readable by its author, and by nobody else —
+  // enforced in server/services, which is the only place this table is read.
+  fullAnswer  String?   @db.Text
+  picks       Int[]
+  submittedAt DateTime  @default(now())
+}
+
+model PaymentIntent {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  purpose     String        // "DEPOSIT" | "TOPUP"
+  amountCents Int
+  status      PaymentStatus @default(PENDING)
+  gatewayRef  String?       @unique
+
+  createdAt   DateTime      @default(now())
+  paidAt      DateTime?
+
+  @@index([userId, status])
+}
+
+model LedgerEntry {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  kind        LedgerKind
+  // Negative for fees and payouts, positive for credits. The platform fee and
+  // the gateway fee are separate rows on purpose: blending them is how a
+  // marketplace that advertises 1% quietly charges four.
+  amountCents Int
+  label       String
+  jobId       String?
+  createdAt   DateTime   @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Thread {
+  id        String         @id @default(cuid())
+  jobId     String?
+  job       Job?           @relation(fields: [jobId], references: [id])
+  members   ThreadMember[]
+  messages  Message[]
+  lastMessageAt DateTime   @default(now())
+  createdAt DateTime       @default(now())
+
+  @@index([lastMessageAt])
+}
+
+model ThreadMember {
+  threadId String
+  thread   Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt   DateTime?
+
+  @@id([threadId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  threadId   String
+  thread     Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation(fields: [senderId], references: [id])
+  body       String   @db.Text
+
+  // Deliverables arrive watermarked; the clean original stays unreadable
+  // until the milestone it belongs to is released.
+  attachmentUrl   String?
+  cleanUrl        String?
+  watermarked     Boolean @default(false)
+  releasedAt      DateTime?
+
+  createdAt  DateTime @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  jobId     String
+  authorId  String
+  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  subjectId String
+  subject   User     @relation("ReviewSubject", fields: [subjectId], references: [id])
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  // One review per person per job — the deterministic pair is what stops
+  // brigading.
+  @@unique([jobId, authorId])
+  @@index([subjectId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  title     String
+  body      String
+  href      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+}
