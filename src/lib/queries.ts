@@ -135,5 +135,8 @@ export const myChats = (uid: string) =>
  * an equality filter on its own rides the automatic single-field index, so it
  * needs no composite index either. Ordering is client-side, as everywhere.
  */
+/** Reviews written about someone. Public by rule; sorted client-side. */
+export const reviewsAbout = (uid: string) => [where('subjectId', '==', uid)];
+
 export const freelancerProfiles = (max = 100) =>
   [where('role', '==', 'freelancer'), fbLimit(max)];

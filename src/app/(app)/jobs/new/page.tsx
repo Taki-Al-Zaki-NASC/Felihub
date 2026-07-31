@@ -8,6 +8,7 @@ import { useSession } from '@/lib/session';
 import { describeError, postJob } from '@/lib/mutations';
 import type { Milestone } from '@/lib/schema';
 import { Button, Card, ErrorState, SectionLabel } from '@/components/ui';
+import { useToast } from '@/components/toast';
 
 const TYPES = [
   { key: 'freelance', label: 'Freelance' },
@@ -19,6 +20,7 @@ const TYPES = [
 export default function PostJob() {
   const { user } = useSession();
   const router = useRouter();
+  const toast = useToast();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -83,6 +85,7 @@ export default function PostJob() {
         skills,
         milestones: milestones.filter((m) => m.label.trim()),
       });
+      toast.success('Job posted. Verified freelancers can bid on it now.');
       router.push(`/jobs/${id}` as Route);
     } catch (err) {
       setError(describeError(err));

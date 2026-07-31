@@ -65,10 +65,20 @@ export interface Proposal {
   bidAmountCents?: number;
   note?: string;
   chatId?: string | null;
+  /**
+   * The owner-visible summary. `answerPreview` is the field the client writes
+   * — an earlier `preview` here silently never matched, so challenge excerpts
+   * never rendered.
+   */
   challenge?: {
+    attempted?: boolean;
     completed?: boolean;
+    mode?: string;
     score?: number | null;
-    preview?: string | null;
+    answerPreview?: string | null;
+    hasFullSubmission?: boolean;
+    quizAnswers?: number[];
+    elapsedSeconds?: number;
   };
   createdAt?: Timestamp;
 }
@@ -81,6 +91,13 @@ export interface Proposal {
  * a directory can be built from it without exposing anything the account did
  * not choose to publish.
  */
+export interface ExperienceEntry {
+  role: string;
+  company?: string;
+  period?: string;
+  summary?: string;
+}
+
 export interface PublicProfile {
   id: string;
   uid: string;
@@ -93,7 +110,28 @@ export interface PublicProfile {
   hourlyRateCents?: number | null;
   photoBase64?: string | null;
   verified?: boolean;
+  /** Free-form work history. Optional — an empty profile is not an error. */
+  experience?: ExperienceEntry[];
+  languages?: string[];
+  portfolioUrl?: string | null;
   updatedAt?: Timestamp;
+}
+
+/**
+ * A review — `reviews/{jobId__authorId}`, world-readable.
+ *
+ * The deterministic id is what stops brigading: one review per person per job,
+ * and re-submitting edits rather than stacking.
+ */
+export interface Review {
+  id: string;
+  jobId: string;
+  authorId: string;
+  authorName?: string;
+  subjectId: string;
+  rating: number;
+  comment?: string;
+  createdAt?: Timestamp;
 }
 
 export interface ChatThread {

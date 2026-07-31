@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useSession } from '@/lib/session';
 import { isVerified, type UserRoleKey } from '@/lib/types';
+import type { ExperienceEntry } from '@/lib/schema';
 import { completeProfile, describeError } from '@/lib/mutations';
 import { signOut } from '@/lib/auth-actions';
 import { Button, ErrorState, Loading } from '@/components/ui';
+import { useToast } from '@/components/toast';
 
 /**
  * Profile setup — the page that clears the `onboarding` stage.
@@ -15,6 +17,7 @@ import { Button, ErrorState, Loading } from '@/components/ui';
  */
 export default function ProfileSetup() {
   const { user } = useSession();
+  const toast = useToast();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [title, setTitle] = useState('');
   const [bio, setBio] = useState('');
@@ -22,6 +25,9 @@ export default function ProfileSetup() {
   const [skillText, setSkillText] = useState('');
   const [rate, setRate] = useState('');
   const [role, setRole] = useState<UserRoleKey>(user?.role ?? 'freelancer');
+  const [languages, setLanguages] = useState('');
+  const [portfolio, setPortfolio] = useState('');
+  const [experience, setExperience] = useState<ExperienceEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,10 +46,16 @@ export default function ProfileSetup() {
         uid: user.uid,
         displayName, title, bio, location,
         skills: skillText.split(',').map((s) => s.trim()).filter(Boolean),
+        languages: languages.split(',').map((l) => l.trim()).filter(Boolean),
+        portfolioUrl: portfolio.trim() || null,
+        // Blank rows are what a repeater always accumulates; storing them
+        // would render as empty entries on the public profile.
+        experience: experience.filter((e) => e.role.trim()),
         hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
         role,
         verified: isVerified(user),
       });
+      toast.success('Profile saved.');
       // No redirect needed: the session snapshot moves the stage on, and the
       // gate routes from there.
     } catch (err) {
@@ -100,6 +112,49 @@ export default function ProfileSetup() {
               hint="Comma separated." />
             <Field label="Hourly rate" value={rate} onChange={setRate}
               hint="Optional. Leave blank if you quote per project." />
+            <Field label="Languages" value={languages} onChange={setLanguages}
+              hint="Comma separated. Optional." />
+            <Field label="Portfolio link" value={portfolio} onChange={setPortfolio}
+              hint="Optional. A site, a repository, a reel." />
+
+            <div>
+              <span className="text-xs font-semibold text-ink-muted">Work experience</span>
+              <p className="mt-0.5 text-xs text-ink-faint">
+                Optional, and shown on your public profile.
+              </p>
+              <div className="mt-2 space-y-2">
+                {experience.map((e, i) => (
+                  <div key={i} className="rounded-card border border-border bg-surface p-3">
+                    <div className="flex gap-2">
+                      <input value={e.role} placeholder="Role"
+                        onChange={(ev) => setExperience(experience.map((x, j) =>
+                          j === i ? { ...x, role: ev.target.value } : x))}
+                        className="min-w-0 flex-1 rounded-field border border-border px-3 py-2 text-base outline-none focus:border-teal sm:text-sm" />
+                      <button type="button" aria-label={`Remove experience ${i + 1}`}
+                        onClick={() => setExperience(experience.filter((_, j) => j !== i))}
+                        className="px-2 text-sm text-ink-faint hover:text-danger">×</button>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <input value={e.company ?? ''} placeholder="Company"
+                        onChange={(ev) => setExperience(experience.map((x, j) =>
+                          j === i ? { ...x, company: ev.target.value } : x))}
+                        className="min-w-0 flex-1 rounded-field border border-border px-3 py-2 text-base outline-none focus:border-teal sm:text-sm" />
+                      <input value={e.period ?? ''} placeholder="2021–2024"
+                        onChange={(ev) => setExperience(experience.map((x, j) =>
+                          j === i ? { ...x, period: ev.target.value } : x))}
+                        className="w-32 rounded-field border border-border px-3 py-2 text-base outline-none focus:border-teal sm:text-sm" />
+                    </div>
+                    <textarea value={e.summary ?? ''} rows={2} placeholder="What you did there"
+                      onChange={(ev) => setExperience(experience.map((x, j) =>
+                        j === i ? { ...x, summary: ev.target.value } : x))}
+                      className="mt-2 w-full rounded-field border border-border px-3 py-2 text-base outline-none focus:border-teal sm:text-sm" />
+                  </div>
+                ))}
+              </div>
+              <button type="button"
+                onClick={() => setExperience([...experience, { role: '' }])}
+                className="mt-2 text-xs font-bold text-teal-deep">+ Add a role</button>
+            </div>
           </>
         )}
 

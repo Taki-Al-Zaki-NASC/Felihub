@@ -1,6 +1,7 @@
 'use client';
 
-import type { PublicProfile } from '@/lib/schema';
+import type { PublicProfile, Review } from '@/lib/schema';
+import { useCollection, byNewest, reviewsAbout } from '@/lib/queries';
 import { Card, Pill, SectionLabel, money } from './ui';
 
 /**
@@ -79,11 +80,103 @@ export function ProfileView({ profile, action }: {
         </section>
       )}
 
-      {!profile.bio && (!profile.skills || profile.skills.length === 0) && (
+      {profile.experience && profile.experience.length > 0 && (
+        <section className="mt-6">
+          <SectionLabel>Work experience</SectionLabel>
+          <div className="mt-2 space-y-3">
+            {profile.experience.map((e, i) => (
+              <div key={`${e.role}-${i}`}
+                className="border-l-2 border-border pl-4">
+                <p className="font-semibold">{e.role}</p>
+                <p className="text-sm text-ink-muted">
+                  {[e.company, e.period].filter(Boolean).join(' · ')}
+                </p>
+                {e.summary && (
+                  <p className="mt-1 text-sm text-ink-muted">{e.summary}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {profile.languages && profile.languages.length > 0 && (
+        <section className="mt-6">
+          <SectionLabel>Languages</SectionLabel>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {profile.languages.map((l) => <Pill key={l}>{l}</Pill>)}
+          </div>
+        </section>
+      )}
+
+      {profile.portfolioUrl && (
+        <section className="mt-6">
+          <SectionLabel>Portfolio</SectionLabel>
+          <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-block break-all text-sm font-semibold text-teal-deep hover:underline">
+            {profile.portfolioUrl}
+          </a>
+        </section>
+      )}
+
+      <Reviews uid={profile.uid} />
+
+      {!profile.bio
+        && (!profile.skills || profile.skills.length === 0)
+        && (!profile.experience || profile.experience.length === 0) && (
         <p className="mt-6 text-sm text-ink-muted">
-          This profile has no description or skills yet.
+          This profile has no description, skills or work history yet.
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * Reviews about this account.
+ *
+ * Read from the public `reviews` collection rather than a rating cached on the
+ * profile: a cached average is written by the person being rated, and the
+ * whole point of a review is that its subject did not author it.
+ */
+function Reviews({ uid }: { uid: string }) {
+  const { data, loading, error } = useCollection<Review>(
+    'reviews', reviewsAbout(uid), [uid]);
+
+  if (loading || error || data.length === 0) return null;
+
+  const rows = byNewest(data);
+  const average = rows.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rows.length;
+
+  return (
+    <section className="mt-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <SectionLabel>Reviews</SectionLabel>
+        <span className="text-sm">
+          <strong className="font-serif text-lg text-teal-deep">
+            {average.toFixed(1)}
+          </strong>
+          <span className="text-xs text-ink-faint"> / 5 · {rows.length}</span>
+        </span>
+      </div>
+      <div className="mt-2 space-y-2">
+        {rows.slice(0, 8).map((r) => (
+          <Card key={r.id}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">{r.authorName ?? 'A client'}</p>
+              <span aria-label={`${r.rating} out of 5`} className="text-sm text-amber">
+                {'★'.repeat(Math.max(0, Math.min(5, r.rating)))}
+                <span className="text-ink-faint">
+                  {'★'.repeat(Math.max(0, 5 - r.rating))}
+                </span>
+              </span>
+            </div>
+            {r.comment && (
+              <p className="mt-1.5 text-sm text-ink-muted">{r.comment}</p>
+            )}
+          </Card>
+        ))}
+      </div>
+    </section>
   );
 }

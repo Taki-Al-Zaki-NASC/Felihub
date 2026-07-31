@@ -397,6 +397,9 @@ export async function completeProfile(input: {
   skills: string[];
   hourlyRate: number | null;
   role: string;
+  languages?: string[];
+  portfolioUrl?: string | null;
+  experience?: unknown[];
   /** Current verification state — see the note in saveProfilePhoto. */
   verified?: boolean;
 }) {
@@ -411,6 +414,9 @@ export async function completeProfile(input: {
     location: input.location.trim(),
     skills: input.skills,
     hourlyRateCents: input.hourlyRate === null ? null : Math.round(input.hourlyRate * 100),
+    languages: input.languages ?? [],
+    portfolioUrl: input.portfolioUrl ?? null,
+    experience: input.experience ?? [],
   };
 
   const batch = writeBatch(fb.db);

@@ -16,6 +16,7 @@ import { DEPOSIT_CENTS, REQUIRES_PHOTO, isVerified } from '@/lib/types';
 import { FREE_VERIFICATION, isDemoAccount } from '@/lib/demo';
 import { validateTd3Line2 } from '@/lib/document-validation';
 import { Button, Card, ErrorState, Pill, SectionLabel, money } from '@/components/ui';
+import { useToast } from '@/components/toast';
 
 /**
  * Identity verification and the deposit gate.
@@ -29,6 +30,7 @@ import { Button, Card, ErrorState, Pill, SectionLabel, money } from '@/component
  */
 export default function Verify() {
   const { user } = useSession();
+  const toast = useToast();
   const [type, setType] = useState<DocumentType>('nationalId');
   const [reference, setReference] = useState('');
   const [refError, setRefError] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export default function Verify() {
       }
       setFailed((f) => { const n = { ...f }; delete n.photo; return n; });
       await saveProfilePhoto(user.uid, base64, isVerified(user));
+      toast.success('Profile photo saved.');
     } catch (e) {
       setError(describeError(e));
     } finally {
@@ -95,6 +98,7 @@ export default function Verify() {
     setBusy(true); setError(null);
     try {
       await clearDepositAsDemo(user.uid, DEPOSIT_CENTS[user.role]);
+      toast.success('Deposit cleared. Your account is now verified.');
     } catch (e) {
       setError(describeError(e));
     } finally {
@@ -132,6 +136,7 @@ export default function Verify() {
         documentBase64: docShot.b64, selfieBase64: selfie.b64,
         documentCheck: docShot.check, selfieCheck: selfie.check,
       });
+      toast.success('Identity verified — checked on this device, no waiting.');
     } catch (e) {
       setError(describeError(e));
     } finally {

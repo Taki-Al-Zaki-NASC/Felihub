@@ -5,6 +5,7 @@ import type { Job, Proposal } from '@/lib/schema';
 import { describeError, shortlistProposal } from '@/lib/mutations';
 import { hire, InsufficientPostingBalance } from '@/lib/escrow';
 import { useSession } from '@/lib/session';
+import { useToast } from './toast';
 import { Card, ErrorState, Pill, money } from './ui';
 
 /**
@@ -17,6 +18,7 @@ import { Card, ErrorState, Pill, money } from './ui';
  */
 export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal[] }) {
   const { user } = useSession();
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -28,6 +30,7 @@ export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal
     setBusyId(p.id); setError(null);
     try {
       await hire(job, p, user.displayName);
+      toast.success(`Hired ${p.freelancerName}. Escrow funded and a thread is open.`);
     } catch (e) {
       // The balance message is written for the person reading it, so it is
       // passed through rather than flattened into a generic failure.
@@ -40,7 +43,11 @@ export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal
   async function toggle(p: Proposal) {
     setBusyId(p.id); setError(null);
     try {
-      await shortlistProposal(p.id, p.status !== 'shortlisted');
+      const on = p.status !== 'shortlisted';
+      await shortlistProposal(p.id, on);
+      toast.success(on
+        ? `${p.freelancerName} shortlisted.`
+        : `${p.freelancerName} removed from the shortlist.`);
     } catch (e) {
       setError(describeError(e));
     } finally {
@@ -67,9 +74,9 @@ export function ProposalList({ job, proposals }: { job: Job; proposals: Proposal
                 )}
               </div>
               {p.note && <p className="mt-1.5 text-sm text-ink-muted">{p.note}</p>}
-              {p.challenge?.preview && (
+              {p.challenge?.answerPreview && (
                 <p className="mt-2 rounded-field bg-backdrop px-3 py-2 text-xs text-ink-muted">
-                  {p.challenge.preview}
+                  {p.challenge.answerPreview}
                   <span className="mt-1 block text-ink-faint">
                     Preview only — the full submission is private to its author.
                   </span>
