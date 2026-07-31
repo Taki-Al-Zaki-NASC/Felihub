@@ -113,6 +113,15 @@ export const myJobs = (uid: string) => [where('ownerId', '==', uid)];
 export const myProposals = (uid: string) => [where('freelancerId', '==', uid)];
 
 /**
+ * Jobs this freelancer was hired for.
+ *
+ * A direct query rather than filtering the browse feed: that feed is capped,
+ * so a contract could simply fall off the end of it and vanish from the
+ * dashboard. Single equality filter, automatic index.
+ */
+export const myContracts = (uid: string) => [where('hiredFreelancerId', '==', uid)];
+
+/**
  * Applicants on one listing, for the owner.
  *
  * Scoped by `jobOwnerId` as well as `jobId`, and that is not redundant.

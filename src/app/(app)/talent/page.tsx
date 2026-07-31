@@ -46,7 +46,7 @@ export default function Talent() {
     const q = term.trim().toLowerCase();
     return data
       // Profiles that have never been filled in are noise in a directory.
-      .filter((p) => (p.displayName ?? '').trim() && p.uid !== user?.uid)
+      .filter((p) => (p.displayName ?? '').trim() && (p.uid || p.id) !== user?.uid)
       .filter((p) => {
         if (skill && !(p.skills ?? []).includes(skill)) return false;
         if (!q) return true;
@@ -59,11 +59,11 @@ export default function Talent() {
 
   async function message(p: PublicProfile) {
     if (!user || busyId) return;
-    setBusyId(p.uid); setFailure(null);
+    setBusyId(p.uid || p.id); setFailure(null);
     try {
       const id = await openThread({
         meId: user.uid, meName: user.displayName,
-        otherId: p.uid, otherName: p.displayName ?? 'Felicek user',
+        otherId: p.uid || p.id, otherName: p.displayName ?? 'Felicek user',
       });
       router.push(`/messages/${id}` as Route);
     } catch (e) {
@@ -134,7 +134,7 @@ export default function Talent() {
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/profile/${p.uid}` as Route}
+                  <Link href={`/profile/${p.uid || p.id}` as Route}
                     className="truncate font-semibold hover:text-teal-deep hover:underline">
                     {p.displayName}
                   </Link>
@@ -165,16 +165,16 @@ export default function Talent() {
             )}
 
             <div className="mt-4 flex gap-2">
-              <Link href={`/profile/${p.uid}` as Route}
+              <Link href={`/profile/${p.uid || p.id}` as Route}
                 className="flex min-h-[44px] flex-1 items-center justify-center rounded-button border border-border-strong bg-surface px-4 text-sm font-bold transition hover:bg-backdrop">
                 View profile
               </Link>
               <button
                 onClick={() => void message(p)}
-                disabled={busyId === p.uid}
+                disabled={busyId === (p.uid || p.id)}
                 className="min-h-[44px] flex-1 rounded-button bg-ink-strong px-4 text-sm font-bold text-canvas transition hover:opacity-90 disabled:opacity-50"
               >
-                {busyId === p.uid ? 'Opening…' : 'Message'}
+                {busyId === (p.uid || p.id) ? 'Opening…' : 'Message'}
               </button>
             </div>
           </Card>

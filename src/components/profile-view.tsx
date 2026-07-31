@@ -119,7 +119,10 @@ export function ProfileView({ profile, action }: {
         </section>
       )}
 
-      <Reviews uid={profile.uid} />
+      {/* The document id is the uid by construction, so it is the reliable
+          source — older profiles were written without the field, and passing
+          undefined into a where() clause throws during render. */}
+      <Reviews uid={profile.uid || profile.id} />
 
       {!profile.bio
         && (!profile.skills || profile.skills.length === 0)
@@ -140,8 +143,11 @@ export function ProfileView({ profile, action }: {
  * whole point of a review is that its subject did not author it.
  */
 function Reviews({ uid }: { uid: string }) {
+  // A falsy uid would reach where('subjectId', '==', undefined), which
+  // Firestore throws on synchronously — during render, taking the whole page
+  // down. Passing a null path skips the query instead.
   const { data, loading, error } = useCollection<Review>(
-    'reviews', reviewsAbout(uid), [uid]);
+    uid ? 'reviews' : null, uid ? reviewsAbout(uid) : [], [uid]);
 
   if (loading || error || data.length === 0) return null;
 

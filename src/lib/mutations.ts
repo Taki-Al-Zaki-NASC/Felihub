@@ -344,6 +344,11 @@ export async function updateRole(uid: string, role: UserRoleKey, verified = fals
     updatedAt: serverTimestamp(),
   }, { merge: true });
   batch.set(doc(fb.db, 'profiles', uid), {
+    // `uid` on every write, not just the first. A profile written only by
+    // this function or by saveProfilePhoto had no uid field at all, and
+    // anything reading profile.uid then got undefined — which Firestore
+    // rejects outright when it reaches a where() clause, crashing the render.
+    uid,
     role,
     verified,
     updatedAt: serverTimestamp(),
@@ -395,6 +400,7 @@ export async function saveProfilePhoto(uid: string, base64: string, verified = f
     profilePhotoBase64: base64, updatedAt: serverTimestamp(),
   }, { merge: true });
   batch.set(doc(fb.db, 'profiles', uid), {
+    uid,
     photoBase64: base64,
     // Always sent, never omitted. The rule compares this field, and on a
     // profile written before `verified` existed the comparison is against a

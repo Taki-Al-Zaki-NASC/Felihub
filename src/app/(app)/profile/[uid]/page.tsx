@@ -62,7 +62,8 @@ export default function PublicProfilePage({ params }: {
     try {
       const id = await openThread({
         meId: user.uid, meName: user.displayName,
-        otherId: profile.uid, otherName: profile.displayName ?? 'Felicek user',
+        otherId: profile.uid || profile.id,
+        otherName: profile.displayName ?? 'Felicek user',
       });
       router.push(`/messages/${id}` as Route);
     } catch (e) {

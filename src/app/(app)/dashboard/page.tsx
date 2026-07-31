@@ -4,13 +4,19 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
 import { isDemoAccount } from '@/lib/demo';
-import { useCollection, myJobs, myProposals, openJobs, byNewest } from '@/lib/queries';
+import {
+  useCollection, myJobs, myProposals, myContracts, openJobs, byNewest,
+} from '@/lib/queries';
+import { where } from 'firebase/firestore';
 import type { Job, Proposal } from '@/lib/schema';
 import type { AppUser } from '@/lib/types';
 import { Card, EmptyState, ErrorState, Loading, Pill, SectionLabel, money } from '@/components/ui';
 import { JobRow } from '@/components/job-row';
 import { BillingPanel } from '@/components/billing-panel';
 import { RoleMismatchHint } from '@/components/role-switcher';
+import { ActiveContracts, RecentThreads } from '@/components/active-contracts';
+import { myChats, byRecentMessage } from '@/lib/queries';
+import type { ChatThread } from '@/lib/schema';
 
 /**
  * Role-aware home.
@@ -48,6 +54,11 @@ export default function Dashboard() {
 
 function ClientHome({ user }: { user: AppUser }) {
   const jobs = useCollection<Job>('jobs', myJobs(user.uid), [user.uid]);
+  // Accepted bids supply the counterparty and the agreed amount for each
+  // active contract. Scoped to this owner, so it needs no extra permission.
+  const hired = useCollection<Proposal>(
+    'proposals', [where('jobOwnerId', '==', user.uid)], [user.uid]);
+  const threads = useCollection<ChatThread>('chats', myChats(user.uid), [user.uid]);
 
   if (jobs.loading) return <Loading />;
   if (jobs.error) return <ErrorState message={jobs.error} />;
@@ -97,9 +108,18 @@ function ClientHome({ user }: { user: AppUser }) {
         </section>
       )}
 
-      <div className="mt-8">
+      <ActiveContracts
+        jobs={rows}
+        proposals={hired.data.filter((p) => p.status === 'accepted')}
+        selfId={user.uid}
+        asClient
+      />
+
+      <div className="mt-9">
         <BillingPanel user={user} escrowHeldCents={escrow} />
       </div>
+
+      <RecentThreads threads={byRecentMessage(threads.data)} selfId={user.uid} />
 
       <section className="mt-9">
         <div className="flex items-center justify-between gap-3">
@@ -131,6 +151,8 @@ function ClientHome({ user }: { user: AppUser }) {
 function FreelancerHome({ user }: { user: AppUser }) {
   const mine = useCollection<Proposal>('proposals', myProposals(user.uid), [user.uid]);
   const feed = useCollection<Job>('jobs', openJobs(), []);
+  const threads = useCollection<ChatThread>('chats', myChats(user.uid), [user.uid]);
+  const contracts = useCollection<Job>('jobs', myContracts(user.uid), [user.uid]);
 
   if (mine.loading || feed.loading) return <Loading />;
 
@@ -182,9 +204,18 @@ function FreelancerHome({ user }: { user: AppUser }) {
         </section>
       )}
 
-      <div className="mt-8">
+      <ActiveContracts
+        jobs={contracts.data}
+        proposals={won}
+        selfId={user.uid}
+        asClient={false}
+      />
+
+      <div className="mt-9">
         <BillingPanel user={user} />
       </div>
+
+      <RecentThreads threads={byRecentMessage(threads.data)} selfId={user.uid} />
 
       {active.length > 0 && (
         <section className="mt-9">
