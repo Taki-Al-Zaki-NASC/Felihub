@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from '@/lib/session';
-import { isVerified } from '@/lib/types';
+import { isVerified, type UserRoleKey } from '@/lib/types';
 import { completeProfile, describeError } from '@/lib/mutations';
 import { signOut } from '@/lib/auth-actions';
 import { Button, ErrorState, Loading } from '@/components/ui';
@@ -21,12 +21,13 @@ export default function ProfileSetup() {
   const [location, setLocation] = useState('');
   const [skillText, setSkillText] = useState('');
   const [rate, setRate] = useState('');
+  const [role, setRole] = useState<UserRoleKey>(user?.role ?? 'freelancer');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (!user) return <Loading />;
 
-  const isFreelancer = user.role === 'freelancer';
+  const isFreelancer = role === 'freelancer';
   const ready = displayName.trim().length > 1 && bio.trim().length > 10;
 
   async function submit(e: React.FormEvent) {
@@ -40,7 +41,7 @@ export default function ProfileSetup() {
         displayName, title, bio, location,
         skills: skillText.split(',').map((s) => s.trim()).filter(Boolean),
         hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
-        role: user.role,
+        role,
         verified: isVerified(user),
       });
       // No redirect needed: the session snapshot moves the stage on, and the
@@ -60,6 +61,28 @@ export default function ProfileSetup() {
           ? 'This is what clients see when you bid.'
           : 'This is what freelancers see when you post work.'}
       </p>
+
+      <fieldset className="mt-6">
+        <legend className="text-xs font-semibold text-ink-muted">Account type</legend>
+        <p className="mt-1 text-xs text-ink-faint">
+          Decides what the app shows you: a freelancer bids on work, everyone
+          else posts it and browses talent. Changeable here — nothing else on
+          the site could change it, which left accounts stuck on the wrong side
+          of the marketplace.
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {ROLE_CHOICES.map((r) => (
+            <button type="button" key={r.key} onClick={() => setRole(r.key)}
+              aria-pressed={role === r.key}
+              className={`rounded-card border px-4 py-3 text-left transition ${
+                role === r.key ? 'border-teal bg-teal-tint' : 'border-border bg-surface hover:border-border-strong'
+              }`}>
+              <span className="block text-sm font-semibold">{r.label}</span>
+              <span className="mt-0.5 block text-xs text-ink-muted">{r.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <form onSubmit={submit} className="mt-7 space-y-4">
         <Field label="Display name" value={displayName} onChange={setDisplayName} />
@@ -125,3 +148,10 @@ function Area({ label, value, onChange, hint }: {
     </label>
   );
 }
+
+const ROLE_CHOICES: { key: UserRoleKey; label: string; blurb: string }[] = [
+  { key: 'freelancer', label: 'Freelancer', blurb: 'Bid on work. Appears in the talent directory.' },
+  { key: 'client', label: 'Client', blurb: 'Post jobs and browse talent.' },
+  { key: 'agency', label: 'Agency', blurb: 'Hire as a team.' },
+  { key: 'startup', label: 'Startup', blurb: 'Build a team.' },
+];

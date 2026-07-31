@@ -41,7 +41,7 @@ function linksFor(user: AppUser | null): { href: Route; label: string; icon: Rea
       : { href: '/jobs' as Route, label: 'Jobs', icon: <IconBriefcase /> },
     { href: '/messages' as Route, label: 'Messages', icon: <IconChat /> },
     cleared
-      ? { href: '/profile/setup' as Route, label: profileLabel, icon: <IconUser /> }
+      ? { href: '/profile' as Route, label: profileLabel, icon: <IconUser /> }
       : { href: '/verify' as Route, label: 'Verify', icon: <IconShield /> },
   ];
 }

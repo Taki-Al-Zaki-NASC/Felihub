@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
@@ -133,7 +134,10 @@ export default function Talent() {
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-semibold">{p.displayName}</p>
+                  <Link href={`/profile/${p.uid}` as Route}
+                    className="truncate font-semibold hover:text-teal-deep hover:underline">
+                    {p.displayName}
+                  </Link>
                   {p.verified && <Pill tone="teal">Verified</Pill>}
                 </div>
                 {p.title && (
@@ -160,13 +164,19 @@ export default function Talent() {
               </div>
             )}
 
-            <button
-              onClick={() => void message(p)}
-              disabled={busyId === p.uid}
-              className="mt-4 min-h-[44px] w-full rounded-button border border-border-strong bg-surface px-4 text-sm font-bold transition hover:bg-backdrop disabled:opacity-50"
-            >
-              {busyId === p.uid ? 'Opening…' : 'Message'}
-            </button>
+            <div className="mt-4 flex gap-2">
+              <Link href={`/profile/${p.uid}` as Route}
+                className="flex min-h-[44px] flex-1 items-center justify-center rounded-button border border-border-strong bg-surface px-4 text-sm font-bold transition hover:bg-backdrop">
+                View profile
+              </Link>
+              <button
+                onClick={() => void message(p)}
+                disabled={busyId === p.uid}
+                className="min-h-[44px] flex-1 rounded-button bg-ink-strong px-4 text-sm font-bold text-canvas transition hover:opacity-90 disabled:opacity-50"
+              >
+                {busyId === p.uid ? 'Opening…' : 'Message'}
+              </button>
+            </div>
           </Card>
         ))}
       </div>
