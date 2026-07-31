@@ -10,6 +10,7 @@ import type { AppUser } from '@/lib/types';
 import { Card, EmptyState, ErrorState, Loading, Pill, SectionLabel, money } from '@/components/ui';
 import { JobRow } from '@/components/job-row';
 import { BillingPanel } from '@/components/billing-panel';
+import { RoleMismatchHint } from '@/components/role-switcher';
 
 /**
  * Role-aware home.
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const posts = user.role !== 'freelancer';
   return (
     <>
+      <RoleMismatchHint />
       {isDemoAccount(user.email) && (
         <div className="mb-5 rounded-card border border-amber/40 bg-amber-tint px-4 py-2.5">
           <p className="text-xs">

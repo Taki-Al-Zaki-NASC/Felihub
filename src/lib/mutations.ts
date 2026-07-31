@@ -6,6 +6,7 @@ import { firebase } from './firebase';
 import { notify } from './notifications';
 import type { Job, Milestone, Proposal } from './schema';
 import type { CheckResult, DocumentType } from './identity-check';
+import { DEPOSIT_CENTS, type UserRoleKey } from './types';
 
 /** Turns any thrown value into a sentence. Never surfaces the raw exception. */
 export function describeError(e: unknown): string {
@@ -313,6 +314,41 @@ export async function submitIdentity(input: {
     },
     updatedAt: serverTimestamp(),
   }, { merge: true });
+}
+
+/**
+ * Changes the account type, on its own.
+ *
+ * Separate from completeProfile deliberately. That function requires a name
+ * and a bio before it will submit, so the role picker inside it was unusable
+ * for anyone whose bio was short — the save button simply stayed disabled and
+ * the role never moved. Switching sides of the marketplace should not be
+ * gated behind writing an "about" paragraph.
+ *
+ * Writes both documents: `users/{uid}` drives what the app shows, and
+ * `profiles/{uid}` is what the talent directory filters on, so a freelancer
+ * who switches to client has to leave that directory too.
+ */
+export async function updateRole(uid: string, role: UserRoleKey, verified = false) {
+  const fb = firebase();
+  if (!fb) throw new Error('Firebase is not configured.');
+  const batch = writeBatch(fb.db);
+  batch.set(doc(fb.db, 'users', uid), {
+    role,
+    // Nested object, not a 'kyc.depositAmountCents' key. setDoc with merge
+    // treats a dotted key as a literal field name — only updateDoc reads it
+    // as a path — so that spelling would have created a field with a dot in
+    // its name and left the real one untouched. merge deep-merges maps, so
+    // depositPaid and the rest of kyc survive, which the rules require.
+    kyc: { depositAmountCents: DEPOSIT_CENTS[role] },
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  batch.set(doc(fb.db, 'profiles', uid), {
+    role,
+    verified,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  await batch.commit();
 }
 
 /**

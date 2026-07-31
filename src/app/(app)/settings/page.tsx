@@ -7,6 +7,7 @@ import { signOut } from '@/lib/auth-actions';
 import { isDemoAccount, FREE_VERIFICATION } from '@/lib/demo';
 import { DEPOSIT_CENTS, meetsMandatoryRequirements } from '@/lib/types';
 import { Card, Loading, Pill, SectionLabel, money } from '@/components/ui';
+import { RoleSwitcher } from '@/components/role-switcher';
 
 /**
  * Account settings.
@@ -38,10 +39,10 @@ export default function Settings() {
           <Row label="Email" value={user.email} note="Cannot be changed — the rules pin it to your sign-in." />
           <Row label="Name" value={user.displayName}
             action={{ href: '/profile/setup' as Route, label: 'Edit' }} />
-          <Row label="Account type" value={roleLabel}
-            action={{ href: '/profile/setup' as Route, label: 'Change' }} />
         </Card>
       </section>
+
+      <RoleSwitcher />
 
       <section className="mt-8">
         <SectionLabel>Verification</SectionLabel>
