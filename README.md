@@ -32,26 +32,71 @@ business model; read those first.
 ## Setup
 
 ```bash
-cp .env.example .env.local     # fill DATABASE_URL + DIRECT_URL
+cp .env.example .env.local     # DATABASE_URL, DIRECT_URL, AUTH_SECRET
 npm install
 npx prisma db push
 npm run dev
 ```
 
-## Status — Step 1 of the rebuild
+### Deploying to Vercel
 
-Built and verified (`npm run typecheck && npm run build` both clean):
+Three environment variables, all required before accounts work:
 
-- Folder structure and route groups: `(marketing)`, `(auth)`, `(platform)`
-- Prisma schema — 14 models covering roles, KYC, escrow, milestones,
-  owner-blind challenges, ledger, threads, reviews, notifications
-- Root layout: fonts, viewport, Felicek tokens
-- `AppShell` — fixed top bar, role-aware sidebar, mobile drawer
-- `verification.ts` — the single definition of "may act"
-- Prisma singleton, session loader
+| Variable | What it is |
+| --- | --- |
+| `DATABASE_URL` | Pooled Postgres connection (Neon/Supabase free tier is fine) |
+| `DIRECT_URL` | Direct connection, used by `prisma db push` / migrations |
+| `AUTH_SECRET` | 32+ random characters — `openssl rand -base64 32` |
 
-Not built yet: every page body, auth provider, Server Actions, realtime,
-WebRTC. Those are Steps 2+.
+Then run `npx prisma db push` once against `DIRECT_URL` to create the tables.
+
+Without them the marketing pages still build and serve; sign-up and sign-in
+say plainly that the database is not connected rather than throwing.
+
+## Status
+
+The public site and the full signed-in product are built and working:
+
+- **Marketing** — landing, how-it-works, pricing, about, 404 and error pages
+- **Auth** — sign-up with role selection, sign-in, signed JWT session cookie,
+  bcrypt password hashing
+- **Onboarding** — profile, avatar (downscaled in the browser to a ~30 KB data
+  URL, so no object storage to provision), then verification
+- **Verification** — real ICAO 9303 check-digit and Bangladesh NID validation,
+  free during the beta but still gated on both document *and* deposit
+- **Hirers** — dashboard, talent directory, post a job, read bids, hire (which
+  funds escrow in the same transaction), contracts, wallet with a top-up
+- **Freelancers** — dashboard, job board with search, bid (free, no credits),
+  contracts, wallet
+- **Both** — messages with threads, notifications, public profiles, settings
+
+Verified by driving the product end to end in a real browser against a real
+Postgres: sign up → onboard → verify → post → bid → hire → escrow → message,
+as both roles. That walk is what found the two dead ends fixed below.
+
+Not built yet: WebRTC calls, skill challenges, milestone release, reviews,
+deliverable watermarking, and the payment gateway. The schema carries all of
+them.
+
+## One decision still open
+
+**Socket.io cannot run on Vercel** — see the top of this file. Messaging works
+today on ordinary request/response; live delivery needs that decision.
+
+## Two dead ends found by using the product
+
+Both were invisible from the code and obvious within a minute of driving it.
+
+**A verified freelancer could not bid.** `meetsMandatoryRequirements` requires a
+profile photo, and there was nowhere in the product to upload one — so the
+account was permanently stuck one step from its first bid. Fixed by adding the
+avatar upload to onboarding *and* refusing to save a freelancer profile without
+one, so the wall is hit where it can be cleared rather than at bid time.
+
+**A verified client could not hire.** Escrow is funded from the posting
+balance, the beta grants $50, and no top-up existed — so any job worth more
+than $50 could never be filled. Fixed by adding a top-up on the Wallet page,
+labelled on the ledger as a beta credit rather than a payment.
 
 ## Two v1 bugs this structure prevents by construction
 

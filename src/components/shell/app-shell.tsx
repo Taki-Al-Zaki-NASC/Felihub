@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
   Briefcase, FileText, LayoutDashboard, Menu, MessageSquare,
@@ -9,10 +10,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import type { SessionUser } from '@/types/session';
 
 interface NavItem {
-  href: string;
+  href: Route;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }
@@ -93,9 +95,9 @@ export function AppShell({
               )}
             </Link>
             <Link href={`/profile/${user.username}`}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-tint font-serif text-sm font-semibold text-teal-deep"
+              className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-backdrop"
               aria-label="Your profile">
-              {user.displayName.charAt(0).toUpperCase()}
+              <Avatar src={user.image} name={user.displayName} size={32} />
             </Link>
           </div>
         </div>

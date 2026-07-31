@@ -1,0 +1,67 @@
+'use client';
+
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { Button } from '@/components/ui/button';
+import { Field, FormError, TextArea } from '@/components/ui/field';
+import { CATEGORIES } from '@/lib/categories';
+import { createJobAction } from '@/server/actions/jobs';
+import type { FormResult } from '@/server/actions/profile';
+
+export function JobForm() {
+  const [state, action] = useActionState<FormResult | null, FormData>(
+    createJobAction, null,
+  );
+  const fieldError = (k: string) => state?.fieldErrors?.[k];
+
+  return (
+    <form action={action} className="space-y-5" noValidate>
+      <FormError>{state?.error}</FormError>
+
+      <Field label="Title" name="title"
+        placeholder="Build a five-screen onboarding flow in Flutter"
+        hint="What you need done, in one line."
+        error={fieldError('title')} />
+
+      <div>
+        <label htmlFor="category" className="block text-sm font-semibold">
+          Category
+        </label>
+        <select id="category" name="category" defaultValue=""
+          className="mt-1.5 min-h-[44px] w-full rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
+          <option value="" disabled>Choose one</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {fieldError('category') && (
+          <p className="mt-1.5 text-sm text-danger">{fieldError('category')}</p>
+        )}
+      </div>
+
+      <TextArea label="Description" name="description" rows={8}
+        placeholder="The scope, what you expect delivered, and how you will judge it finished."
+        hint="Detail here is what separates useful bids from guesses."
+        error={fieldError('description')} />
+
+      <Field label="Skills" name="skills"
+        placeholder="Flutter, Firebase, TypeScript"
+        hint="Comma separated. These are what freelancers search on."
+        error={fieldError('skills')} />
+
+      <Field label="Budget" name="budget" inputMode="decimal"
+        placeholder="$1,200"
+        hint="Escrow is funded from your posting balance when you hire."
+        error={fieldError('budget')} />
+
+      <Submit />
+    </form>
+  );
+}
+
+function Submit() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="primary" size="lg" disabled={pending}>
+      {pending ? 'Posting…' : 'Post job'}
+    </Button>
+  );
+}

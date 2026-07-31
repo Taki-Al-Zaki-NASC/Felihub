@@ -1,4 +1,4 @@
-import type { User } from '@prisma/client';
+import type { Role, User } from '@prisma/client';
 
 /**
  * The single definition of "this account may act".
@@ -31,3 +31,35 @@ export function meetsMandatoryRequirements(
 
 export const canPostJob = meetsMandatoryRequirements;
 export const canBid = meetsMandatoryRequirements;
+
+/** What each role puts down, and what it is for. Cents, always. */
+export const DEPOSIT = {
+  TRUST_BOND: {
+    cents: 2000,
+    kind: 'TRUST_BOND' as const,
+    label: 'Trust bond',
+    explain: 'Refunded in full after your first completed job. It exists so '
+      + 'bidding can stay free without the board filling with noise.',
+  },
+  POSTING_BALANCE: {
+    cents: 5000,
+    kind: 'POSTING_BALANCE' as const,
+    label: 'Posting balance',
+    explain: 'Not a fee — it is your money, held on the platform and spent '
+      + 'into escrow on real work. Whatever you do not spend, you withdraw.',
+  },
+} as const;
+
+export function depositFor(role: Role) {
+  return role === 'FREELANCER' ? DEPOSIT.TRUST_BOND : DEPOSIT.POSTING_BALANCE;
+}
+
+/**
+ * Beta: verification costs nothing.
+ *
+ * The gate itself still runs — documents are still submitted and checked, and
+ * `depositPaid` is still what unlocks the account. Only the amount is zero, so
+ * ending the beta changes one constant rather than re-enabling a code path
+ * that has not executed in months.
+ */
+export const FREE_VERIFICATION = true;

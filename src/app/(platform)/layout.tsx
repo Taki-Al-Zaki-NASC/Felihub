@@ -12,6 +12,16 @@ import { getSessionUser } from '@/server/auth';
  * so a blocked account is told why, instead of filling in a form whose write
  * the database will refuse.
  */
+/**
+ * Never prerendered.
+ *
+ * Every page under here is one account's data. Without this, a build that runs
+ * before DATABASE_URL is set resolves "no session", statically bakes the
+ * redirect to /sign-in, and then serves that stale HTML to signed-in users
+ * once the database *is* connected.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function PlatformLayout({
   children,
 }: {

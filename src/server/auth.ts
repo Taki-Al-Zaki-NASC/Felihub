@@ -1,5 +1,7 @@
 import { cache } from 'react';
-import { db } from '@/server/db';
+import { redirect } from 'next/navigation';
+import { databaseConfigured, db } from '@/server/db';
+import { readSession } from '@/server/session';
 import { isVerified } from '@/server/services/verification';
 import type { SessionUser } from '@/types/session';
 
@@ -12,12 +14,12 @@ import type { SessionUser } from '@/types/session';
  * `isVerified` is computed here, once, from the single definition in
  * services/verification.ts — the interface never derives it independently.
  *
- * The session lookup itself is deliberately left as the one seam to fill when
- * we settle the auth provider (Step 2): swap the `userId` resolution, and
- * nothing downstream changes.
+ * The session itself is a signed cookie carrying only a user id — see
+ * server/session.ts for why nothing else is stored in it.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const userId = await resolveUserId();
+  if (!databaseConfigured) return null;
+  const userId = await readSession();
   if (!userId) return null;
 
   const user = await db.user.findUnique({
@@ -44,10 +46,13 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   };
 });
 
-/** Resolves the current user id from the auth cookie. Filled in at Step 2. */
-async function resolveUserId(): Promise<string | null> {
-  throw new Error(
-    'Auth provider not wired yet — this is the Step 2 seam. '
-    + 'Implement resolveUserId() in src/server/auth.ts.',
-  );
+/**
+ * The session user, or a redirect. For Server Actions and pages that have no
+ * meaning without an account — it removes the `if (!user) return` that is easy
+ * to forget and impossible to notice when it is missing.
+ */
+export async function requireUser(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) redirect('/sign-in');
+  return user;
 }
