@@ -91,6 +91,10 @@ export function Nav() {
                 </span>
               )}
             </Link>
+            <Link href={'/settings' as Route} aria-label="Settings"
+              className="flex min-h-[36px] items-center rounded-[9px] px-2.5 text-ink-muted hover:bg-backdrop">
+              <IconCog />
+            </Link>
             <button onClick={() => void signOut()}
               className="flex min-h-[36px] items-center rounded-[9px] px-3 text-xs font-semibold text-ink-faint hover:bg-backdrop hover:text-danger">
               Sign out
@@ -139,6 +143,14 @@ function IconChat() {
   return (
     <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconCog() {
+  return (
+    <svg className={S} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" strokeLinecap="round" />
     </svg>
   );
 }

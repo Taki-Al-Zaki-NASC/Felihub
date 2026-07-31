@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { firebase } from '@/lib/firebase';
 import { useSession } from '@/lib/session';
+import { CallButtons } from '@/components/call-panel';
 import type { ChatThread, Message } from '@/lib/schema';
 import { describeError, markRead, sendMessage } from '@/lib/mutations';
 import { Button, ErrorState, Loading, Pill, relative } from '@/components/ui';
@@ -92,13 +93,16 @@ export default function Thread({ params }: { params: Promise<{ id: string }> }) 
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-13rem)] max-w-3xl flex-col md:h-[calc(100dvh-9rem)]">
-      <header className="flex items-baseline justify-between border-b border-border pb-3">
-        <div>
-          <h1 className="font-serif text-xl font-semibold">{otherName}</h1>
+      <header className="flex items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="min-w-0">
+          <h1 className="truncate font-serif text-xl font-semibold">{otherName}</h1>
           {thread?.jobTitle && (
-            <p className="text-xs text-ink-faint">{thread.jobTitle}</p>
+            <p className="truncate text-xs text-ink-faint">{thread.jobTitle}</p>
           )}
         </div>
+        {otherId && (
+          <CallButtons otherId={otherId} otherName={otherName} chatId={id} />
+        )}
       </header>
 
       <div className="flex-1 space-y-2 overflow-y-auto py-5">
