@@ -98,7 +98,7 @@ export default function Verify() {
     setBusy(true); setError(null);
     try {
       await clearDepositAsDemo(user.uid, DEPOSIT_CENTS[user.role]);
-      toast.success('Deposit cleared. Your account is now verified.');
+      toast.success('Deposit cleared. Submit your identity documents to finish.');
     } catch (e) {
       setError(describeError(e));
     } finally {
@@ -347,14 +347,14 @@ export default function Verify() {
               </p>
               <p className="mt-1 text-xs text-ink-muted">
                 {FREE_VERIFICATION
-                  ? 'Verification costs nothing right now. Clear it and the '
-                    + 'whole marketplace opens — posting, bidding, escrow and '
-                    + 'messaging.'
+                  ? 'The deposit costs nothing right now. Identity is still '
+                    + 'required separately — both have to clear before you can '
+                    + 'post or bid, which is what the checklist above tracks.'
                   : 'This address is on the demo allowlist in the security '
                     + 'rules, so it can clear its own deposit without paying.'}
               </p>
               <Button className="mt-3 w-full" busy={busy} onClick={clearDeposit}>
-                {FREE_VERIFICATION ? 'Verify free — no payment' : 'Clear deposit now — no payment'}
+                {FREE_VERIFICATION ? 'Clear deposit free — no payment' : 'Clear deposit now — no payment'}
               </Button>
             </div>
           )}

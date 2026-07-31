@@ -1,6 +1,8 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import {
+  getFirestore, connectFirestoreEmulator, type Firestore,
+} from 'firebase/firestore';
 
 /**
  * Firebase for the web.
@@ -42,8 +44,27 @@ export const isFirebaseConfigured = Boolean(
  * error. The same mistake here would be a blank page. Callers check for null
  * and render the "not configured" state instead.
  */
+/**
+ * Point at the local emulators when NEXT_PUBLIC_USE_EMULATORS is set.
+ *
+ * Exists so the whole product can be walked end to end — sign up, verify,
+ * post, bid, hire, release — against the real security rules without touching
+ * live data. Guarded by an env var that is never set in a deployed build, and
+ * connecting twice throws, so it runs once per process.
+ */
+let emulatorsWired = false;
+
 export function firebase(): { app: FirebaseApp; auth: Auth; db: Firestore } | null {
   if (!isFirebaseConfigured) return null;
   const app = getApps().length ? getApps()[0] : initializeApp(config);
-  return { app, auth: getAuth(app), db: getFirestore(app) };
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  if (process.env.NEXT_PUBLIC_USE_EMULATORS === '1' && !emulatorsWired) {
+    emulatorsWired = true;
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  }
+
+  return { app, auth, db };
 }

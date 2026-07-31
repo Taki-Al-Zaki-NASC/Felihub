@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useSession } from '@/lib/session';
+import { meetsMandatoryRequirements } from '@/lib/types';
 import { describeError, postJob } from '@/lib/mutations';
 import type { Milestone } from '@/lib/schema';
 import { Button, Card, ErrorState, SectionLabel } from '@/components/ui';
@@ -49,7 +50,7 @@ export default function PostJob() {
   // form takes a title, a description, milestones — and then fails on submit
   // with a permission error, having wasted all of it. The rule is still the
   // enforcement; this is just not wasting someone's time first.
-  if (user && !(user.kyc.stage === 'verified' && user.kyc.depositPaid)) {
+  if (user && !meetsMandatoryRequirements(user)) {
     return (
       <div className="mx-auto max-w-lg">
         <h1 className="font-serif text-2xl font-semibold sm:text-3xl">Post a job</h1>

@@ -69,8 +69,23 @@ export const REQUIRES_PHOTO: Record<UserRoleKey, boolean> = {
   startup: false,
 };
 
+/**
+ * Exactly what `isAccountVerified()` in firestore.rules requires.
+ *
+ * `idSubmitted` is part of it, and leaving it out was not a cosmetic
+ * difference: the rule checks all three, so an account that had cleared its
+ * deposit but never submitted identity was "verified" to the client and
+ * refused by the server. The app offered the post-a-job form, took a title, a
+ * description and milestones, and only then failed the write.
+ *
+ * If this predicate and the rule ever disagree again, the UI will promise
+ * something the database will not honour — so they are kept in the same shape
+ * deliberately.
+ */
 export const isVerified = (u: AppUser) =>
-  u.kyc.stage === 'verified' && u.kyc.depositPaid;
+  u.kyc.idSubmitted === true
+  && u.kyc.depositPaid === true
+  && u.kyc.stage === 'verified';
 
 /**
  * The gate. Mirrors AppUser.meetsMandatoryRequirements — identity on file, the

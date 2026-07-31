@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { firebase } from './firebase';
-import type { AppUser } from './types';
+import { isVerified, type AppUser } from './types';
 
 type Stage =
   | 'booting' | 'signedOut' | 'onboarding' | 'verification' | 'ready'
@@ -130,6 +130,9 @@ function describeReadFailure(e: { code?: string; message?: string }): string {
 
 function stageFor(u: AppUser): Stage {
   if (!u.onboarded || !u.profileComplete) return 'onboarding';
-  if (!(u.kyc.stage === 'verified' && u.kyc.depositPaid)) return 'verification';
+  // isVerified() is the same three conditions the rules check, including
+  // idSubmitted. Using a weaker test here let an account past the gate that
+  // the database would still refuse.
+  if (!isVerified(u)) return 'verification';
   return 'ready';
 }
