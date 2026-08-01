@@ -123,6 +123,8 @@ CREATE TABLE "Proposal" (
     "freelancerId" TEXT NOT NULL,
     "bidCents" INTEGER NOT NULL,
     "note" TEXT NOT NULL,
+    "timelineDays" INTEGER,
+    "attachmentUrl" TEXT,
     "status" "ProposalStatus" NOT NULL DEFAULT 'SUBMITTED',
     "answerPreview" TEXT,
     "score" INTEGER,

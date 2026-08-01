@@ -111,6 +111,9 @@ const bidSchema = z.object({
   note: z.string().trim()
     .min(40, 'Say how you would approach it — a client reads this before your price.')
     .max(8000),
+  timelineDays: z.number().int().min(1).max(3650).nullable(),
+  attachmentUrl: z.string().trim().url('That is not a full URL.').max(500)
+    .nullable(),
 });
 
 export async function submitProposalAction(
@@ -140,9 +143,13 @@ export async function submitProposalAction(
   if (job.status !== 'OPEN') return { error: 'That job is no longer taking bids.' };
   if (job.ownerId === user.id) return { error: 'You cannot bid on your own posting.' };
 
+  const rawDays = String(form.get('timelineDays') ?? '').trim();
+  const rawUrl = String(form.get('attachmentUrl') ?? '').trim();
   const parsed = bidSchema.safeParse({
     bidCents: parseMoney(String(form.get('bid') ?? '')) ?? 0,
     note: form.get('note'),
+    timelineDays: rawDays ? Number(rawDays) : null,
+    attachmentUrl: rawUrl || null,
   });
   if (!parsed.success) return flatten(parsed.error);
 
@@ -153,9 +160,8 @@ export async function submitProposalAction(
     select: { id: true, revisions: true },
   });
 
-  // Two revisions, then the bid is final. Bids are public here, so unlimited
-  // edits turn a proposal into a live auction against whoever bid last — which
-  // is a race to the bottom, not a market.
+  // Two revisions, then the bid is final. Revising once is a correction;
+  // revising ten times is negotiating against yourself.
   if (existing && existing.revisions >= MAX_BID_REVISIONS) {
     return {
       error: `You have already revised this bid ${MAX_BID_REVISIONS} times, `
@@ -184,7 +190,9 @@ export async function submitProposalAction(
         userId: job.ownerId,
         kind: 'PROPOSAL',
         title: existing ? 'A bid was updated' : 'New bid',
-        body: `${user.displayName} bid on “${job.title}”.`,
+        // Deliberately no amount: notifications are read in previews and
+        // email, and the price is private to this thread.
+        body: `${user.displayName} sent a proposal for “${job.title}”.`,
         href: `/jobs/${jobId}`,
       },
     });

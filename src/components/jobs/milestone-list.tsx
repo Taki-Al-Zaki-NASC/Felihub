@@ -28,10 +28,17 @@ export interface MilestoneRow {
  * says the amount, because releasing is irreversible and a control that hides
  * what it costs is a trap.
  */
-export function MilestoneList({ milestones, isOwner, hired }: {
+export function MilestoneList({ milestones, isOwner, hired, showAmounts }: {
   milestones: MilestoneRow[];
   isOwner: boolean;
   hired: boolean;
+  /**
+   * Amounts are shown to the job's owner and to the freelancer working on it,
+   * and to nobody else. They are contract terms — and once someone is hired
+   * they sum to exactly the accepted bid, so showing them to a competitor
+   * hands over the price the bid privacy is there to protect.
+   */
+  showAmounts: boolean;
 }) {
   const released = milestones.filter((m) => m.released).length;
   const total = milestones.reduce((t, m) => t + m.amountCents, 0);
@@ -44,9 +51,15 @@ export function MilestoneList({ milestones, isOwner, hired }: {
         <span className="text-ink-muted">
           {released} of {milestones.length} released
         </span>
-        <span className="font-semibold">
-          {money(paid)} <span className="font-normal text-ink-faint">of {money(total)}</span>
-        </span>
+        {showAmounts ? (
+          <span className="font-semibold">
+            {money(paid)} <span className="font-normal text-ink-faint">of {money(total)}</span>
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-ink-faint">
+            <Lock className="h-3.5 w-3.5" /> Amounts are private
+          </span>
+        )}
       </div>
 
       <ul className="divide-y divide-border">
@@ -73,7 +86,9 @@ export function MilestoneList({ milestones, isOwner, hired }: {
                   </p>
                 </div>
               </div>
-              <span className="font-semibold">{money(m.amountCents)}</span>
+              {showAmounts && (
+                <span className="font-semibold">{money(m.amountCents)}</span>
+              )}
             </div>
 
             {isOwner && hired && !m.released && (

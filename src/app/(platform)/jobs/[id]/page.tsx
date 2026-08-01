@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { Inbox, Lock, ShieldCheck, Trophy } from 'lucide-react';
+import { Inbox, ShieldCheck, Trophy } from 'lucide-react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
 import { canBid } from '@/server/services/verification';
@@ -9,10 +9,10 @@ import { ago, money } from '@/lib/money';
 import { MAX_BID_REVISIONS } from '@/lib/bids';
 import { Badge, Card, CardHeader, Empty, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar } from '@/components/ui/avatar';
 import { ProposalForm } from '@/components/jobs/proposal-form';
-import { HireButton } from '@/components/jobs/hire-button';
 import { MilestoneList } from '@/components/jobs/milestone-list';
+import { ProposalList } from '@/components/jobs/proposal-list';
+import { proposalsForViewer } from '@/server/services/proposals';
 import { ChallengeBuilder } from '@/components/jobs/challenge-builder';
 
 export async function generateMetadata({
@@ -59,30 +59,11 @@ export default async function JobDetail({
 
   const isOwner = job.ownerId === user.id;
 
-  // Bids are public: every verified account sees who bid, what they asked for
-  // and how they would approach it. What stays private is the challenge —
-  // `score` and `answerPreview` go to the job's owner only, and the full
-  // submission to nobody but its author.
-  const proposals = await db.proposal.findMany({
-    where: { jobId: job.id },
-    orderBy: [{ status: 'asc' }, { bidCents: 'asc' }],
-    select: {
-      id: true, bidCents: true, note: true, status: true,
-      createdAt: true, revisions: true,
-      ...(isOwner ? { score: true, answerPreview: true } : {}),
-      freelancer: {
-        select: {
-          username: true, displayName: true,
-          profile: {
-            select: { headline: true, ratingAvg: true, ratingCount: true },
-          },
-        },
-      },
-    },
-  });
-
-  const mine = proposals.find((p) => p.freelancer.username === user.username);
-  const hired = proposals.some((p) => p.status === 'ACCEPTED');
+  // Bids are private. `proposalsForViewer` is the only module that reads the
+  // Proposal table; it decides per viewer which columns are even fetched.
+  const view = await proposalsForViewer(job.id, user.id);
+  const mine = view.own;
+  const hired = view.proposals.some((p) => p.status === 'ACCEPTED');
 
   const account = await db.user.findUniqueOrThrow({
     where: { id: user.id },
@@ -91,13 +72,6 @@ export default async function JobDetail({
       role: true, image: true,
     },
   });
-
-  const bidRange = proposals.length > 0
-    ? {
-      low: Math.min(...proposals.map((p) => p.bidCents)),
-      high: Math.max(...proposals.map((p) => p.bidCents)),
-    }
-    : null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -138,8 +112,13 @@ export default async function JobDetail({
         {job.milestones.length > 0 && (
           <Card className="mt-6">
             <CardHeader title="Milestones"
-              description="Every job on Felicek is milestone-based. Escrow is funded and released one at a time." />
-            <MilestoneList milestones={job.milestones} isOwner={isOwner} hired={hired} />
+              description={isOwner || mine?.status === 'ACCEPTED'
+                ? 'Escrow is funded and released one milestone at a time.'
+                : 'Every job on Felicek is milestone-based. The amounts are '
+                  + 'between the client and whoever is hired.'} />
+            <MilestoneList milestones={job.milestones} isOwner={isOwner}
+              hired={hired}
+              showAmounts={isOwner || mine?.status === 'ACCEPTED'} />
           </Card>
         )}
 
@@ -186,96 +165,27 @@ export default async function JobDetail({
           </Card>
         )}
 
-        {/* Public. Anyone verified can read the bids on any job. */}
         <Card className="mt-6">
           <CardHeader
-            title={`Bids (${proposals.length})`}
-            description={bidRange
-              ? `${money(bidRange.low)} – ${money(bidRange.high)}. Bids on Felicek are public.`
-              : 'Bids on Felicek are public — everyone sees the same list.'} />
-          {proposals.length === 0 ? (
+            title={`Proposals (${view.total})`}
+            description={isOwner
+              ? view.range
+                ? `Bids from ${money(view.range.lowCents)} to ${money(view.range.highCents)}. Only you can see these.`
+                : 'Only you can see the amounts and cover letters on your job.'
+              : 'Who applied is public. What they wrote and asked for is not — '
+                + 'yours is private in the same way.'} />
+          {view.total === 0 ? (
             <div className="p-5">
-              <Empty icon={Inbox} title="No bids yet"
+              <Empty icon={Inbox} title="No proposals yet"
                 body="Verified freelancers see this posting on their board, matched against their skills." />
             </div>
           ) : (
-            <ul className="divide-y divide-border">
-              {proposals.map((p) => (
-                <li key={p.id} className="p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 gap-3">
-                      <Avatar username={p.freelancer.username}
-                        name={p.freelancer.displayName} size={40} />
-                      <div className="min-w-0">
-                        <Link href={`/profile/${p.freelancer.username}`}
-                          className="font-semibold hover:underline">
-                          {p.freelancer.displayName}
-                          {p.freelancer.username === user.username && ' (you)'}
-                        </Link>
-                        <p className="text-sm text-ink-muted">
-                          {p.freelancer.profile?.headline}
-                        </p>
-                        <p className="mt-0.5 text-xs text-ink-muted">
-                          Bid {ago(p.createdAt)}
-                          {p.revisions > 0 && ` · revised ${p.revisions}×`}
-                          {p.freelancer.profile?.ratingCount
-                            ? ` · ★ ${p.freelancer.profile.ratingAvg?.toFixed(1)} (${p.freelancer.profile.ratingCount})`
-                            : ' · no reviews yet'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-serif text-lg font-semibold">
-                        {money(p.bidCents)}
-                      </p>
-                      <Badge tone={
-                        p.status === 'ACCEPTED' ? 'teal'
-                          : p.status === 'DECLINED' ? 'danger'
-                            : p.status === 'COMPLETED' ? 'teal' : 'neutral'
-                      }>
-                        {p.status.toLowerCase()}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <p className="mt-3 whitespace-pre-wrap text-sm text-ink-muted">
-                    {p.note}
-                  </p>
-
-                  {isOwner && 'score' in p && p.score != null && (
-                    <div className="mt-3 rounded-md border border-border bg-neutral-tint p-3">
-                      <p className="flex items-center gap-2 text-sm font-semibold">
-                        <Lock className="h-3.5 w-3.5 text-ink-faint" />
-                        Challenge score: {p.score}%
-                      </p>
-                      {p.answerPreview && (
-                        <p className="mt-1 line-clamp-2 text-xs text-ink-muted">
-                          {p.answerPreview}
-                        </p>
-                      )}
-                      <p className="mt-1.5 text-xs text-ink-faint">
-                        Only you can see this. Their full submission stays with them.
-                      </p>
-                    </div>
-                  )}
-
-                  {isOwner && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {job.status === 'OPEN' && p.status !== 'DECLINED' && (
-                        <HireButton proposalId={p.id}
-                          amount={money(job.milestones[0]?.amountCents ?? p.bidCents)}
-                          name={p.freelancer.displayName.split(' ')[0]} />
-                      )}
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/messages/new?to=${p.freelancer.username}`}>
-                          Message
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <ProposalList
+              proposals={view.proposals}
+              isOwner={isOwner}
+              jobOpen={job.status === 'OPEN'}
+              viewerUsername={user.username}
+              firstMilestoneCents={job.milestones[0]?.amountCents ?? null} />
           )}
         </Card>
       </div>
@@ -285,7 +195,7 @@ export default async function JobDetail({
           <Card className="p-5">
             <h2 className="font-serif text-base font-semibold">Your posting</h2>
             <dl className="mt-3 space-y-2 text-sm">
-              <Row label="Bids" value={String(job.proposalsCount)} />
+              <Row label="Proposals" value={String(view.total)} />
               <Row label="Budget" value={money(job.budgetCents)} />
               <Row label="In escrow" value={money(job.escrowHeldCents)} />
               <Row label="Milestones" value={String(job.milestones.length)} />
@@ -332,13 +242,15 @@ export default async function JobDetail({
               {mine ? 'Your bid' : 'Submit a proposal'}
             </h2>
             <p className="mt-1 text-sm text-ink-muted">
-              Bidding is free. Bids are public, and you can revise yours{' '}
-              {MAX_BID_REVISIONS} times.
+              Bidding is free. Only the client sees your price and cover
+              letter, and you can revise them {MAX_BID_REVISIONS} times.
             </p>
             <div className="mt-4">
               <ProposalForm jobId={job.id}
                 existingBid={mine ? money(mine.bidCents) : undefined}
                 existingNote={mine?.note}
+                existingTimeline={mine?.timelineDays ?? undefined}
+                existingAttachment={mine?.attachmentUrl ?? undefined}
                 revisionsUsed={mine?.revisions ?? 0}
                 maxRevisions={MAX_BID_REVISIONS} />
             </div>

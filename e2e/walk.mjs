@@ -78,6 +78,14 @@ async function noOverflow(page, label) {
 const UNBREAKABLE =
   'rrrrrrrrrrrrrrrrrrrrrrrrrrwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeeeeeeezar'.repeat(4);
 
+/* Distinctive strings, so a leak is unambiguous: if any of these reaches a
+   competitor's browser it can only have come from someone else's proposal. */
+const SECRET_PITCH =
+  `I would start with the state model, then build the five screens against `
+  + `widget tests. CANARY-COVERLETTER-${stamp}`;
+const SECRET_ATTACHMENT = `https://example.com/canary-attachment-${stamp}`;
+const SECRET_BID = '$1,000';
+
 /** Anything the browser reports is a failure, not noise. A 500 or an uncaught
  *  exception on a page nobody asserted against is still a broken page. */
 function watch(page, label) {
@@ -254,16 +262,94 @@ const bid = f.getByLabel('Your price');
 if (!(await bid.count())) {
   note('bid', `no bid form for a verified freelancer — ${(await body(f)).slice(0, 250)}`);
 } else {
-  await bid.fill('$1,000');
-  await f.getByLabel('Your approach').fill(
-    'I would start with the state model, then build the five screens against '
-    + 'widget tests, and hand over with a walkthrough.');
+  await bid.fill(SECRET_BID);
+  await f.getByLabel('Your approach').fill(SECRET_PITCH);
+  await f.getByLabel('Delivery time').fill('14');
+  await f.getByLabel('Attachment').fill(SECRET_ATTACHMENT);
   await f.getByRole('button', { name: /submit proposal/i }).click();
   await f.waitForTimeout(2000);
+  // Assert the stored proposal rather than the toast: the action revalidates
+  // the page, which re-renders the form and clears its own success state.
+  await open(f, jobUrl.replace(BASE, ''));
   text = await body(f);
-  if (!/bid was sent/i.test(text) && !/Your bid/i.test(text)) {
-    note('bid', `no confirmation — ${text.slice(0, 250)}`);
-  } else ok('proposal submitted');
+  if (!text.includes(SECRET_PITCH.slice(0, 40)) || !text.includes(SECRET_BID)) {
+    note('bid', `the bidder cannot read back their own proposal — ${text.slice(0, 250)}`);
+  } else ok('proposal submitted, and its author can read it back');
+}
+
+/* ── Privacy: a competitor must not be able to read another bid ────────── */
+console.log('\n=== PROPOSAL PRIVACY ===');
+{
+  const rival = {
+    email: `rival${stamp}@felicek.test`, pass: 'Passw0rd!2345', name: 'Rival Freelancer',
+  };
+  const ctx = await browser.newContext();
+  const r = await ctx.newPage();
+  watch(r, 'rival');
+  await signUp(r, rival, 'FREELANCER');
+  await onboard(r, rival, true);
+  await verify(r, '1993123456789');
+
+  await open(r, jobUrl.replace(BASE, ''));
+  const seen = await body(r);
+  const html = await r.content();
+
+  // Rendered text and raw HTML both: a field can leak through a hidden input,
+  // a data attribute or the RSC payload without ever appearing on screen.
+  for (const [what, needle] of [
+    ['cover letter', `CANARY-COVERLETTER-${stamp}`],
+    ['attachment URL', `canary-attachment-${stamp}`],
+  ]) {
+    if (seen.includes(needle)) note('privacy', `a competitor can read the ${what}`);
+    else if (html.includes(needle)) note('privacy', `the ${what} is in the HTML payload`);
+    else ok(`the ${what} is not exposed to a competitor`);
+  }
+  // The amount is a number, so check it did not render as a price anywhere.
+  if (/\$1,000/.test(seen)) note('privacy', 'a competitor can read the bid amount');
+  else ok('the bid amount is not exposed to a competitor');
+  if (/14 days/.test(seen)) note('privacy', 'a competitor can read the delivery estimate');
+  else ok('the delivery estimate is not exposed to a competitor');
+
+  // But the aggregate and the applicant's identity are meant to be visible.
+  if (!/Proposals \(1\)/.test(seen)) note('privacy', 'the proposal count is not shown');
+  else ok('the proposal count is still public');
+  if (!/Fred Freelancer/.test(seen)) note('privacy', 'who applied is not shown');
+  else ok('who applied is still public');
+
+  // And the rival's own bid must be fully visible to the rival.
+  const rivalBid = r.getByLabel('Your price');
+  if (await rivalBid.count()) {
+    await rivalBid.fill('$1,200');
+    await r.getByLabel('Your approach').fill(
+      'A second proposal, written to check that a bidder can still read their own.');
+    await r.getByRole('button', { name: /submit proposal/i }).click();
+    await r.waitForTimeout(2000);
+    await open(r, jobUrl.replace(BASE, ''));
+    const after = await body(r);
+    if (!/\$1,200/.test(after)) note('privacy', 'a bidder cannot see their own bid');
+    else ok('a bidder still sees their own proposal in full');
+    if (/CANARY-COVERLETTER/.test(after)) note('privacy', 'rival now sees the other cover letter');
+  } else note('privacy', 'the rival could not bid');
+
+  // The job board must not carry proposal contents either.
+  await open(r, '/jobs');
+  const boardHtml = await r.content();
+  if (boardHtml.includes(`CANARY-COVERLETTER-${stamp}`) || /\$1,000/.test(await body(r))) {
+    note('privacy', 'the job board leaks proposal contents');
+  } else ok('the job list carries no proposal contents');
+
+  await ctx.close();
+}
+
+/* ── Owner still sees everything ───────────────────────────────────────── */
+await open(c, jobUrl.replace(BASE, ''));
+{
+  const ownerSees = await body(c);
+  if (!ownerSees.includes(`CANARY-COVERLETTER-${stamp}`)) {
+    note('privacy', 'the job owner cannot read the cover letter on their own job');
+  } else ok('the job owner reads every proposal in full');
+  if (!/\$1,000/.test(ownerSees)) note('privacy', 'the owner cannot see the bid amount');
+  else ok('the owner sees bid amounts');
 }
 
 /* ── Hiring, which is where the money moves ───────────────────────────── */

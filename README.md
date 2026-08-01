@@ -176,6 +176,39 @@ Postgres inside the runner, uses it, and destroys it.
 **Socket.io cannot run on Vercel** — see the top of this file. Messaging works
 today on ordinary request/response; live delivery needs that decision.
 
+## Proposal privacy
+
+`src/server/services/proposals.ts` is the only module that reads the Proposal
+table. Everything about a bid except who sent it is commercially sensitive —
+amount, cover letter, delivery estimate, attachment — because a competitor who
+can read them undercuts the best bid to the cent and reuses its pitch.
+
+| Viewer | Sees |
+| --- | --- |
+| Anyone signed in | Proposal count, who applied, their public profile, status |
+| The bidder | All of that, plus their own amount, letter, timeline, attachment |
+| The job's owner | Every field of every proposal on their job, plus challenge scores |
+
+The enforcement is structural. `PUBLIC_SELECT` and `PRIVATE_SELECT` are
+separate Prisma selects, so the sensitive columns are never *fetched* for a
+viewer who may not see them — not fetched and then stripped. Nothing in memory
+holds a secret a stray serialisation could leak, and the two return types have
+different shapes, so rendering an amount you were not given does not compile.
+
+Milestone amounts are gated the same way: once someone is hired they sum to
+exactly the accepted bid, so they are shown only to the client and the person
+working on the job.
+
+**Why not RLS.** Prisma connects as one pooled application role, so `auth.uid()`
+is null and every request looks identical to Postgres. Carrying the viewer in a
+session variable would mean `SET LOCAL` inside a transaction on every query,
+which transaction-mode pooling makes unsafe. If the browser ever talks to
+Supabase directly, add RLS *as well* — a second layer, not a replacement.
+
+The walk signs up a third freelancer whose only job is to try to read a rival's
+bid, and checks the rendered text *and* the raw HTML payload for canary strings
+planted in the cover letter and attachment URL.
+
 ## Two dead ends found by using the product
 
 Both were invisible from the code and obvious within a minute of driving it.

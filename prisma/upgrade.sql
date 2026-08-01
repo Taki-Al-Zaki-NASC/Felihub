@@ -48,3 +48,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ChallengeAnswer_proposalId_attempt_key"
   ON "ChallengeAnswer"("proposalId", "attempt");
 CREATE INDEX IF NOT EXISTS "ChallengeAnswer_challengeId_idx"
   ON "ChallengeAnswer"("challengeId");
+
+-- ── Proposal privacy: the fields only the bidder and the job owner may read ─
+-- Added with the privacy work. `note` (the cover letter) and `bidCents`
+-- already existed; these complete the private set.
+ALTER TABLE "Proposal" ADD COLUMN IF NOT EXISTS "timelineDays" INTEGER;
+ALTER TABLE "Proposal" ADD COLUMN IF NOT EXISTS "attachmentUrl" TEXT;

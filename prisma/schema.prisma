@@ -199,8 +199,15 @@ model Proposal {
   freelancerId   String
   freelancer     User           @relation(fields: [freelancerId], references: [id])
 
+  // ── Private to the bidder and the job's owner. Never selected for anyone
+  //    else; see server/services/proposals.ts, which is the only module that
+  //    reads this table.
   bidCents       Int
-  note           String         @db.Text
+  note           String         @db.Text     // the cover letter
+  timelineDays   Int?                        // proposed delivery time
+  attachmentUrl  String?                     // portfolio piece, sample, brief
+  // ────────────────────────────────────────────────────────────────────────
+
   status         ProposalStatus @default(SUBMITTED)
 
   // The owner-visible summary. The full submission lives in ChallengeAnswer

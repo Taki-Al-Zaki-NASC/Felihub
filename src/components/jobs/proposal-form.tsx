@@ -9,11 +9,14 @@ import { submitProposalAction } from '@/server/actions/jobs';
 import type { FormResult } from '@/server/actions/profile';
 
 export function ProposalForm({
-  jobId, existingBid, existingNote, revisionsUsed = 0, maxRevisions = 2,
+  jobId, existingBid, existingNote, existingTimeline, existingAttachment,
+  revisionsUsed = 0, maxRevisions = 2,
 }: {
   jobId: string;
   existingBid?: string;
   existingNote?: string;
+  existingTimeline?: number;
+  existingAttachment?: string;
   revisionsUsed?: number;
   maxRevisions?: number;
 }) {
@@ -51,14 +54,26 @@ export function ProposalForm({
 
       <Field label="Your price" name="bid" inputMode="decimal"
         defaultValue={existingBid} placeholder="$1,000"
-        hint="What you would charge for the whole job."
+        hint="What you would charge for the whole job. Private to the client."
         error={state?.fieldErrors?.bid} />
 
       <TextArea label="Your approach" name="note" rows={6}
         defaultValue={existingNote}
-        placeholder="How you would tackle it, what you have built like it, and how long you need."
-        hint="The client reads this before your price."
+        placeholder="How you would tackle it, and what you have built like it."
+        hint="Only the client reads this. Other freelancers cannot see it."
         error={state?.fieldErrors?.note} />
+
+      <Field label="Delivery time" name="timelineDays" inputMode="numeric"
+        defaultValue={existingTimeline != null ? String(existingTimeline) : ''}
+        placeholder="14"
+        hint="Days from the first funded milestone. Optional."
+        error={state?.fieldErrors?.timelineDays} />
+
+      <Field label="Attachment" name="attachmentUrl" type="url"
+        defaultValue={existingAttachment}
+        placeholder="https://…"
+        hint="A link to a relevant piece of work. Optional, and private to the client."
+        error={state?.fieldErrors?.attachmentUrl} />
 
       {editing && (
         <p className="text-xs text-ink-muted">
