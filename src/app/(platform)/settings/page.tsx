@@ -7,7 +7,7 @@ import { money } from '@/lib/money';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProfileForm } from '@/components/profile/profile-form';
-import { AvatarUpload } from '@/components/profile/avatar-upload';
+import { AvatarEditor } from '@/components/profile/avatar-editor';
 import { ExperienceEditor } from '@/components/profile/experience-editor';
 import { parseExperience } from '@/lib/experience';
 import { signOutAction } from '@/server/actions/auth';
@@ -86,7 +86,7 @@ export default async function Settings() {
             ? 'This is what clients read in the talent directory before messaging you.'
             : 'Freelancers check who is hiring before they spend time on a proposal.'} />
         <div className="border-b border-border p-5">
-          <AvatarUpload username={user.username} displayName={user.displayName}
+          <AvatarEditor username={user.username} displayName={user.displayName}
             hasImage={Boolean(account.image)} required={isFreelancer} />
         </div>
         <div className="p-5">

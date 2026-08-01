@@ -116,9 +116,14 @@ async function onboard(page, who, isFreelancer) {
   if (!/\/onboarding/.test(page.url())) {
     await page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
   }
+  // Picking a photo opens the crop editor; the save is a second, deliberate
+  // step, so the walk has to take it too.
   await page.locator('input[type=file]')
     .setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG });
-  await page.waitForTimeout(2000);
+  await page.getByRole('button', { name: /save photo/i })
+    .click({ timeout: 15000 })
+    .catch(async () => note('avatar', `the crop editor did not open — ${(await body(page)).slice(0, 200)}`));
+  await page.waitForTimeout(2500);
 
   await page.getByLabel('Display name').fill(who.name);
   await page.getByLabel(isFreelancer ? 'Headline' : 'Company or role')

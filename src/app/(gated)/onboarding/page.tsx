@@ -4,7 +4,7 @@ import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
 import { money } from '@/lib/money';
 import { ProfileForm } from '@/components/profile/profile-form';
-import { AvatarUpload } from '@/components/profile/avatar-upload';
+import { AvatarEditor } from '@/components/profile/avatar-editor';
 import { Progress } from '@/components/onboarding/progress';
 import { AlreadyDone } from '@/components/ui/already-done';
 
@@ -58,7 +58,7 @@ export default async function Onboarding() {
       <div className="mt-7 rounded-lg border border-border bg-surface p-5">
         <h2 className="text-sm font-semibold">Profile photo</h2>
         <div className="mt-3">
-          <AvatarUpload username={user.username} displayName={user.displayName}
+          <AvatarEditor username={user.username} displayName={user.displayName}
             hasImage={Boolean(account.image)} required={isFreelancer} />
         </div>
       </div>
