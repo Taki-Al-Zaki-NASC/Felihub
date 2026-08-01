@@ -99,20 +99,46 @@ Two things the app itself does to stay quick, worth not undoing:
 npm run db:seed
 ```
 
-Three verified client accounts and eight job posts across Data Engineering,
-AI Research & Evaluation and Data Science & Analytics — with real milestone
-breakdowns, durations and budgets, so the board, the category filter and the
-match score have something to work against.
+A marketplace with both sides of it filled in:
 
-It is idempotent: run it twice and nothing changes, and it never deletes a row
-it did not create. Seed accounts are prefixed `sample-` and named "(sample)",
-so a real freelancer browsing the board can tell demonstration data from
-somebody's actual budget.
+| | |
+| --- | --- |
+| **5 verified clients** | a manufacturer, a mobile operator, a research group, an analytics platform, a fintech |
+| **14 open jobs** | 6 applied AI/ML (PyTorch fine-tuning, RAG, speech, recommenders, MLOps), 3 data engineering, 3 AI research & evaluation, 2 analytics |
+| **9 verified freelancers** | with headlines, skills, languages, rates and work history |
+| **22 live bids** | so the board shows real proposal counts, not zeroes |
+| **13 completed contracts** | each with a review, which is where the ratings and earnings come from |
+
+The data is in `prisma/seed-ai-jobs.ts`, `seed-freelancers.ts` and
+`seed-history.ts`; `seed.ts` is only the writer.
+
+**Ratings are not declared, they are earned.** The profile page lists the
+actual `Review` rows next to the average, so a rating with no rows behind it
+would contradict itself on screen. Each completed contract therefore closes
+its job, marks the winning proposal COMPLETED, funds and releases every
+milestone through the same arithmetic `releaseMilestone` uses — gross, less
+the 1% fee — and leaves one review. "$8,959.50 earned" on a profile is the sum
+of those releases.
+
+Re-running is safe. Everything is written against a deterministic key, so a
+second run updates rather than duplicating, and it never deletes a row it did
+not create. The denormalised counters — proposal counts, ratings, lifetime
+earnings — are recomputed and *set*, never incremented, because a seed that is
+only correct the first time is worse than no seed. Timestamps are the one
+thing a re-run changes: postings are dated relative to now, so the board reads
+"posted 3 days ago" instead of aging into a wall of eight-month-old work.
+
+Seed accounts are prefixed `sample-` and named "(sample)", so a real
+freelancer browsing the board can tell demonstration data from somebody's
+actual budget. None of them can sign in — `passwordHash` is null, which
+`signInAction` refuses outright.
 
 The script validates itself before writing anything: every skill must exist in
-`src/lib/categories.ts`, and every job's milestones must sum to its budget. A
-skill typo is otherwise invisible — the job saves and then matches nobody,
-because the match score compares against the list freelancers pick from.
+`src/lib/categories.ts`, every job's milestones must sum to its budget, every
+reference must resolve, and every freelancer must have either a bid or a
+contract. A skill typo is otherwise invisible — the job saves and then matches
+nobody, because the match score compares against the list freelancers pick
+from.
 
 ### Upgrading an existing database
 
@@ -148,6 +174,12 @@ sign-up and sign-in say plainly what is missing rather than throwing.
 The public site and the full signed-in product are built and working:
 
 - **Marketing** — landing, how-it-works, pricing, about, 404 and error pages
+- **Public job board** — `/browse` and `/browse/[id]`, readable with no
+  account. Everything else in the product was behind the sign-in wall, which
+  meant a visitor had to verify their identity before they could find out
+  whether there was any work worth verifying for. It is also the only way
+  these listings are ever indexed by a search engine. Only open jobs are
+  served, and the Proposal table is never read on that path
 - **Auth** — sign-up with role selection, sign-in, signed JWT session cookie,
   bcrypt password hashing
 - **Onboarding** — profile, avatar (downscaled in the browser to a ~30 KB data
@@ -206,6 +238,7 @@ can read them undercuts the best bid to the cent and reuses its pitch.
 
 | Viewer | Sees |
 | --- | --- |
+| A logged-out visitor on `/browse` | The posting and the proposal *count*. Nothing else — that page never reads the Proposal table at all |
 | Anyone signed in | Proposal count, who applied, their public profile, status |
 | The bidder | All of that, plus their own amount, letter, timeline, attachment |
 | The job's owner | Every field of every proposal on their job, plus challenge scores |
@@ -228,11 +261,20 @@ Supabase directly, add RLS *as well* — a second layer, not a replacement.
 
 The walk signs up a third freelancer whose only job is to try to read a rival's
 bid, and checks the rendered text *and* the raw HTML payload for canary strings
-planted in the cover letter and attachment URL.
+planted in the cover letter and attachment URL. It does the same again from a
+browser with no cookies at all against `/browse`, where the seeded bids are
+real rows and none of them may reach a page anyone on the internet can read.
 
-## Two dead ends found by using the product
+## Three dead ends found by using the product
 
-Both were invisible from the code and obvious within a minute of driving it.
+All invisible from the code and obvious within a minute of driving it.
+
+**The talent directory scrolled sideways on a phone.** Every card was about
+395px wide on a 390px screen, because a grid item's default minimum size is its
+content's min-content width and a long display name would not let it shrink.
+The page audit had reported this clean for weeks — because `/talent` had nobody
+in it, so there were no cards to overflow. An empty page passes every layout
+check there is.
 
 **A verified freelancer could not bid.** `meetsMandatoryRequirements` requires a
 profile photo, and there was nowhere in the product to upload one — so the

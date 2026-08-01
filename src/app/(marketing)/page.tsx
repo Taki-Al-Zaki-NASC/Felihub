@@ -58,6 +58,13 @@ export default function Home() {
                 <Link href="/sign-up?role=freelancer">Find work</Link>
               </Button>
             </div>
+            {/* Straight to the listings, no account. Asking someone to verify
+                their identity before they can find out whether there is any
+                work worth verifying for is a strange order to do it in. */}
+            <Link href="/browse"
+              className="mt-4 inline-flex min-h-[40px] items-center text-sm font-bold text-teal-deep hover:underline">
+              Or read the open projects first, no account needed →
+            </Link>
 
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 rounded-lg border border-border bg-neutral-tint p-5">
               {[
@@ -106,9 +113,16 @@ export default function Home() {
           <h2 className="font-serif text-2xl font-semibold sm:text-3xl">
             Browse by category
           </h2>
+          <p className="mt-2 max-w-2xl text-sm text-ink-muted">
+            Open projects, readable without an account. Heaviest right now in
+            applied AI, data engineering and evaluation work.
+          </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {CATEGORIES.map((name) => (
-              <Link key={name} href="/sign-up?role=freelancer"
+              // These used to point at the sign-up form. A category tile that
+              // asks for an email instead of showing the category is the
+              // oldest dark pattern in this business.
+              <Link key={name} href={`/browse?category=${encodeURIComponent(name)}`}
                 className="rounded-lg border border-border p-5 transition hover:-translate-y-0.5 hover:border-teal/40 hover:bg-teal-tint">
                 <p className="font-semibold">{name}</p>
                 <p className="mt-1 text-sm text-ink-muted">{CATEGORY_BLURBS[name]}</p>

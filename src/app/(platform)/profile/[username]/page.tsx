@@ -132,6 +132,41 @@ export default async function Profile({
           )}
         </div>
 
+        {/* Track record. Both numbers were already being fetched and neither
+            was shown — which is odd, because on any marketplace people trust
+            these are the two facts a client actually reads. Both are derived
+            from released escrow, so neither can be self-reported. */}
+        {isFreelancer && (
+          <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3 border-t border-border pt-4">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Jobs completed
+              </dt>
+              <dd className="mt-0.5 font-serif text-lg font-semibold">
+                {person._count.proposals}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Earned on Felicek
+              </dt>
+              <dd className="mt-0.5 font-serif text-lg font-semibold">
+                {money(person.totalEarnedCents)}
+              </dd>
+            </div>
+            {person.profile?.languages?.length ? (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                  Languages
+                </dt>
+                <dd className="mt-0.5 text-sm leading-7">
+                  {person.profile.languages.join(', ')}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        )}
+
         {person.profile?.bio && (
           <p className="mt-5 whitespace-pre-wrap border-t border-border pt-4 text-sm leading-relaxed">
             {person.profile.bio}

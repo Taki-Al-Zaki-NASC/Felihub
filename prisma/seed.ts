@@ -3,48 +3,51 @@
  *
  *   npm run db:seed
  *
- * Creates a handful of verified client accounts and the job posts they would
- * plausibly publish, so a fresh install has something to look at and the job
- * board, category filter and match score can be exercised against realistic
- * content rather than one hand-typed row.
+ * Creates a marketplace that looks like one: verified clients with work
+ * posted, verified freelancers with skills and rates, live bids on the open
+ * jobs, and a set of contracts that already finished — which is where the
+ * ratings and the earnings come from.
  *
- * It is idempotent: everything is upserted against a deterministic key, so
- * running it twice changes nothing and it never deletes a row it did not
- * create. Seed accounts are prefixed `sample-` and their display names say
- * "(sample)", so a real freelancer browsing the board can tell which listings
- * are demonstration data and which are somebody's actual budget.
+ * The data lives in four files next to this one; this is only the writer.
+ *
+ *   seed-ai-jobs.ts      applied AI and PyTorch work, and the two firms posting it
+ *   seed-freelancers.ts  the people, and their live bids
+ *   seed-history.ts      completed contracts, each with a review
+ *   seed-types.ts        the shapes all of them share
+ *
+ * It is safe to re-run. Everything is written against a deterministic key, so
+ * a second run updates rather than duplicating, and it never deletes a row it
+ * did not create. Counters that would otherwise drift — proposal counts,
+ * ratings, lifetime earnings — are recomputed and *set*, never incremented,
+ * which is the difference between a seed that is correct and one that is
+ * correct once.
+ *
+ * The one thing a re-run does change is the timestamps: postings are dated
+ * relative to now, so the board reads "posted 3 days ago" rather than slowly
+ * aging into a wall of eight-month-old work.
+ *
+ * Seed accounts are prefixed `sample-` and their display names say "(sample)",
+ * so a real freelancer browsing the board can tell which listings are
+ * demonstration data and which are somebody's actual budget.
  */
 import { PrismaClient, type Role } from '@prisma/client';
-import { CATEGORIES, SKILLS_BY_CATEGORY, type Category } from '../src/lib/categories';
+import { CATEGORIES, SKILLS_BY_CATEGORY } from '../src/lib/categories';
+import { platformFee } from '../src/lib/fees';
+import type { SeedClient, SeedFreelancer, SeedJob } from './seed-types';
+import { AI_CLIENTS, AI_JOBS } from './seed-ai-jobs';
+import { BIDS, FREELANCERS } from './seed-freelancers';
+import { COMPLETED_JOBS } from './seed-history';
 
 const db = new PrismaClient();
 
 /** Marks every row this script owns, so it is obvious in the database. */
 const SEED_PREFIX = 'sample-';
 
-interface SeedClient {
-  key: string;
-  displayName: string;
-  headline: string;
-  bio: string;
-  location: string;
-  category: Category;
-  hires: string[];
-}
+/** What a freelancer puts down to join, and gets back after their first
+ *  completed job — the same $20 the pricing page quotes. */
+const TRUST_BOND_CENTS = 20_00;
 
-interface SeedJob {
-  key: string;
-  client: string;
-  title: string;
-  category: Category;
-  skills: string[];
-  budgetCents: number;
-  durationDays: number;
-  description: string;
-  milestones: { label: string; amountCents: number }[];
-}
-
-const CLIENTS: SeedClient[] = [
+const BASE_CLIENTS: SeedClient[] = [
   {
     key: 'northwind-data',
     displayName: 'Northwind Data (sample)',
@@ -88,7 +91,7 @@ const CLIENTS: SeedClient[] = [
 
 /** Budgets are in cents, and milestones must sum to the budget exactly — the
  *  same rule the posting form enforces. */
-const JOBS: SeedJob[] = [
+const BASE_JOBS: SeedJob[] = [
   /* ── Data Engineering ─────────────────────────────────────────────────── */
   {
     key: 'etl-airflow-snowflake',
@@ -355,7 +358,33 @@ const JOBS: SeedJob[] = [
   },
 ];
 
+const CLIENTS: SeedClient[] = [...BASE_CLIENTS, ...AI_CLIENTS];
+const OPEN_JOBS: SeedJob[] = [...BASE_JOBS, ...AI_JOBS];
+const ALL_JOBS: SeedJob[] = [...OPEN_JOBS, ...COMPLETED_JOBS];
+
 /* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Account keys to database ids, filled in as accounts are written.
+ *
+ * Accounts are matched on their email rather than given a chosen id, because
+ * an earlier version of this seed let Prisma generate the id — and a database
+ * already carrying those rows would reject a second one with the same email.
+ * A row's id is not something a re-run can change without breaking every
+ * foreign key pointing at it.
+ */
+const ids = new Map<string, string>();
+
+function userId(key: string): string {
+  const id = ids.get(key);
+  if (!id) throw new Error(`seed: no account was written for "${key}"`);
+  return id;
+}
+
+const email = (key: string) => `${SEED_PREFIX}${key}@felicek.example`;
+const jobId = (key: string) => `${SEED_PREFIX}${key}`;
+const proposalId = (job: string, freelancer: string) =>
+  `${SEED_PREFIX}bid-${job}-${freelancer}`;
 
 function noteTarget() {
   const url = process.env.DATABASE_URL ?? '';
@@ -363,7 +392,7 @@ function noteTarget() {
   const local = /@(localhost|127\.0\.0\.1|host\.docker\.internal|postgres)[:/]/.test(url);
   if (!local) {
     console.log(
-      'Seeding a remote database. Every account and job created here is '
+      'Seeding a remote database. Every account, job and bid created here is '
       + 'labelled "(sample)" so anyone browsing can tell it apart from real '
       + 'work.\n',
     );
@@ -371,23 +400,39 @@ function noteTarget() {
 }
 
 /**
- * Every skill on every job must exist in the taxonomy.
+ * Everything that has to be true before a single row is written.
  *
- * A typo here is invisible — the job saves, and then it never matches anyone,
- * because the match score compares against the skill list a freelancer picked
- * from. Failing loudly at seed time is the whole point of this check.
+ * A skill typo is the motivating case: the job saves, and then it matches
+ * nobody, because the match score compares against the list a freelancer picks
+ * from. Nothing about that failure is visible from the outside. The rest are
+ * the same shape — references that resolve, money that adds up, ratings inside
+ * the range the star renderer can draw.
  */
-function assertSkillsAreReal() {
+function validate() {
   const problems: string[] = [];
   const everySkill = new Set(
     CATEGORIES.flatMap((c) => SKILLS_BY_CATEGORY[c].map((s) => s.toLowerCase())),
   );
+  const clientKeys = new Set(CLIENTS.map((c) => c.key));
+  const freelancerKeys = new Set(FREELANCERS.map((f) => f.key));
+  const openKeys = new Set(OPEN_JOBS.map((j) => j.key));
 
-  for (const job of JOBS) {
-    for (const skill of job.skills) {
+  const checkSkills = (owner: string, skills: string[]) => {
+    for (const skill of skills) {
       if (!everySkill.has(skill.toLowerCase())) {
-        problems.push(`"${job.title}" lists "${skill}", which is in no category`);
+        problems.push(`${owner} lists "${skill}", which is in no category`);
       }
+    }
+  };
+
+  const seen = new Set<string>();
+  for (const job of ALL_JOBS) {
+    if (seen.has(job.key)) problems.push(`two jobs share the key "${job.key}"`);
+    seen.add(job.key);
+
+    checkSkills(`job "${job.title}"`, job.skills);
+    if (!clientKeys.has(job.client)) {
+      problems.push(`job "${job.key}" references unknown client "${job.client}"`);
     }
     const total = job.milestones.reduce((t, m) => t + m.amountCents, 0);
     if (total !== job.budgetCents) {
@@ -395,13 +440,56 @@ function assertSkillsAreReal() {
         `"${job.title}" milestones total ${total} but the budget is ${job.budgetCents}`,
       );
     }
-  }
-  for (const client of CLIENTS) {
-    for (const skill of client.hires) {
-      if (!everySkill.has(skill.toLowerCase())) {
-        problems.push(`client ${client.key} lists "${skill}", which is in no category`);
+    // A completed contract needs both halves: somebody did the work, and
+    // somebody said how it went. One without the other is a rating with no
+    // review behind it, or a review page nobody can reach.
+    if (job.hired && !freelancerKeys.has(job.hired)) {
+      problems.push(`job "${job.key}" was won by unknown freelancer "${job.hired}"`);
+    }
+    if (Boolean(job.hired) !== Boolean(job.review)) {
+      problems.push(`job "${job.key}" needs both a hired freelancer and a review, or neither`);
+    }
+    if (job.review && (job.review.rating < 1 || job.review.rating > 5)) {
+      problems.push(`job "${job.key}" has a rating outside 1–5`);
+    }
+    if (job.follows) {
+      const earlier = COMPLETED_JOBS.find((j) => j.key === job.follows);
+      if (!earlier) {
+        problems.push(`job "${job.key}" follows "${job.follows}", which is not a completed contract`);
+      } else if (earlier.follows) {
+        // One level only: the date is derived recursively, and a cycle would
+        // hang the seed rather than fail it.
+        problems.push(`job "${job.key}" follows "${job.follows}", which itself follows something`);
+      } else if (earlier.client !== job.client || earlier.hired !== job.hired) {
+        problems.push(`job "${job.key}" follows a contract with a different client or freelancer`);
       }
     }
+  }
+
+  for (const client of CLIENTS) checkSkills(`client ${client.key}`, client.hires);
+  for (const person of FREELANCERS) checkSkills(`freelancer ${person.key}`, person.skills);
+
+  for (const bid of BIDS) {
+    if (!openKeys.has(bid.job)) {
+      problems.push(`bid references "${bid.job}", which is not an open job`);
+    }
+    if (!freelancerKeys.has(bid.freelancer)) {
+      problems.push(`bid on "${bid.job}" is from unknown freelancer "${bid.freelancer}"`);
+    }
+  }
+  const bidPairs = new Set<string>();
+  for (const bid of BIDS) {
+    const pair = `${bid.job}/${bid.freelancer}`;
+    if (bidPairs.has(pair)) problems.push(`${bid.freelancer} bids twice on ${bid.job}`);
+    bidPairs.add(pair);
+  }
+
+  // Every freelancer should be findable, and a directory entry with no work
+  // history and no bids is a profile nobody has a reason to open.
+  for (const person of FREELANCERS) {
+    const active = BIDS.some((b) => b.freelancer === person.key)
+      || ALL_JOBS.some((j) => j.hired === person.key);
+    if (!active) problems.push(`freelancer ${person.key} has neither a bid nor a contract`);
   }
 
   if (problems.length > 0) {
@@ -409,13 +497,13 @@ function assertSkillsAreReal() {
   }
 }
 
-async function seedClient(c: SeedClient) {
-  const email = `${SEED_PREFIX}${c.key}@felicek.example`;
+/* ── writers ─────────────────────────────────────────────────────────────── */
 
+async function seedClient(c: SeedClient) {
   const user = await db.user.upsert({
-    where: { email },
+    where: { email: email(c.key) },
     create: {
-      email,
+      email: email(c.key),
       username: `${SEED_PREFIX}${c.key}`,
       displayName: c.displayName,
       role: 'CLIENT' as Role,
@@ -428,91 +516,344 @@ async function seedClient(c: SeedClient) {
       depositKind: 'POSTING_BALANCE',
       kycStage: 'VERIFIED',
       postingBalanceCents: 5_000_00,
+      createdAt: daysAgo(joinedDaysAgo(c.key)),
     },
-    update: { displayName: c.displayName },
+    update: { displayName: c.displayName, createdAt: daysAgo(joinedDaysAgo(c.key)) },
     select: { id: true },
   });
+  ids.set(c.key, user.id);
 
   await db.profile.upsert({
     where: { userId: user.id },
     create: {
       userId: user.id,
-      headline: c.headline,
-      bio: c.bio,
-      location: c.location,
-      category: c.category,
-      skills: c.hires,
-      verified: true,
+      headline: c.headline, bio: c.bio, location: c.location,
+      category: c.category, skills: c.hires, verified: true,
     },
     update: {
       headline: c.headline, bio: c.bio, location: c.location,
       category: c.category, skills: c.hires, verified: true,
     },
   });
-
-  return user.id;
 }
 
-async function seedJob(job: SeedJob, ownerId: string) {
-  const id = `${SEED_PREFIX}${job.key}`;
+/**
+ * A freelancer who will appear in the talent directory.
+ *
+ * `Profile.verified` is what puts them there, and in the real product it is
+ * written only by the server on the verification path — which is exactly what
+ * this is standing in for. The account still cannot sign in.
+ */
+async function seedFreelancer(f: SeedFreelancer) {
+  const user = await db.user.upsert({
+    where: { email: email(f.key) },
+    create: {
+      email: email(f.key),
+      username: `${SEED_PREFIX}${f.key}`,
+      displayName: f.displayName,
+      role: 'FREELANCER' as Role,
+      passwordHash: null,
+      idSubmitted: true,
+      depositPaid: true,
+      depositCents: TRUST_BOND_CENTS,
+      depositKind: 'TRUST_BOND',
+      kycStage: 'VERIFIED',
+      createdAt: daysAgo(joinedDaysAgo(f.key)),
+    },
+    update: { displayName: f.displayName, createdAt: daysAgo(joinedDaysAgo(f.key)) },
+    select: { id: true },
+  });
+  ids.set(f.key, user.id);
+  const id = user.id;
 
-  // Deterministic id, so a second run updates rather than duplicating.
-  const existing = await db.job.findUnique({ where: { id }, select: { id: true } });
+  await db.profile.upsert({
+    where: { userId: id },
+    create: {
+      userId: id,
+      headline: f.headline, bio: f.bio, location: f.location,
+      category: f.category, skills: f.skills, languages: f.languages,
+      hourlyRateCents: f.hourlyRateCents, portfolioUrl: f.portfolioUrl ?? null,
+      experience: f.experience, verified: true,
+    },
+    update: {
+      headline: f.headline, bio: f.bio, location: f.location,
+      category: f.category, skills: f.skills, languages: f.languages,
+      hourlyRateCents: f.hourlyRateCents, portfolioUrl: f.portfolioUrl ?? null,
+      experience: f.experience, verified: true,
+    },
+  });
+}
 
-  if (existing) {
-    await db.job.update({
+/**
+ * Milestones, with deterministic ids.
+ *
+ * They used to be deleted and recreated on every run, which meant a completed
+ * contract's released milestones had to be exempted, and any milestone whose
+ * label changed came back as a new row with new money attached. Keying them on
+ * the job and position makes the write an upsert and the whole thing boring.
+ */
+async function seedMilestones(job: SeedJob, id: string, done: boolean) {
+  const ids = job.milestones.map((_, position) => `${id}-m${position}`);
+  const finished = finishedDaysAgo(job.key);
+
+  // Anything left over from a previous shape of this job. Scoped to a seed
+  // job, so this can never touch a milestone somebody actually created.
+  await db.milestone.deleteMany({ where: { jobId: id, id: { notIn: ids } } });
+
+  for (const [position, m] of job.milestones.entries()) {
+    const data = {
+      jobId: id, label: m.label, amountCents: m.amountCents, position,
+      funded: done, fundedAt: done ? daysAgo(finished + job.durationDays) : null,
+      released: done, releasedAt: done ? daysAgo(finished) : null,
+    };
+    await db.milestone.upsert({
+      where: { id: ids[position] },
+      create: { id: ids[position], ...data },
+      update: data,
+    });
+  }
+}
+
+async function seedJob(job: SeedJob) {
+  const id = jobId(job.key);
+  const done = Boolean(job.hired);
+  const shared = {
+    ownerId: userId(job.client),
+    title: job.title, description: job.description, category: job.category,
+    skills: job.skills, budgetCents: job.budgetCents,
+    durationDays: job.durationDays,
+    status: done ? ('CLOSED' as const) : ('OPEN' as const),
+    escrowHeldCents: 0,
+    createdAt: daysAgo(done
+      ? finishedDaysAgo(job.key) + job.durationDays + 4
+      : postedDaysAgo(job.key)),
+  };
+
+  await db.job.upsert({
+    where: { id },
+    create: { id, ...shared },
+    update: shared,
+  });
+
+  await seedMilestones(job, id, done);
+}
+
+/** A live bid: visible as a count and an applicant, never as an amount. */
+async function seedBid(bid: {
+  job: string; freelancer: string; bidCents: number;
+  timelineDays: number; note: string;
+}) {
+  const id = proposalId(bid.job, bid.freelancer);
+  // Somewhere between the job being posted and today, never before it.
+  const posted = postedDaysAgo(bid.job);
+  const shared = {
+    jobId: jobId(bid.job),
+    freelancerId: userId(bid.freelancer),
+    bidCents: bid.bidCents,
+    note: bid.note,
+    timelineDays: bid.timelineDays,
+    status: 'SUBMITTED' as const,
+    createdAt: daysAgo(posted - (hash(`${bid.job}-${bid.freelancer}`) % posted)),
+  };
+  await db.proposal.upsert({
+    where: { id },
+    create: { id, ...shared },
+    update: shared,
+  });
+}
+
+/**
+ * A finished contract: the winning bid, the review, and the money.
+ *
+ * The amounts follow the release action exactly — gross per milestone, 1%
+ * platform fee, the rest to the freelancer — so the earnings on these profiles
+ * are the numbers the product itself would have produced rather than a
+ * flattering round figure.
+ */
+async function seedContract(job: SeedJob) {
+  if (!job.hired || !job.review) return;
+  const id = proposalId(job.key, job.hired);
+  const jid = jobId(job.key);
+  const freelancerId = userId(job.hired);
+  const finished = finishedDaysAgo(job.key);
+
+  const shared = {
+    jobId: jid,
+    freelancerId,
+    // The accepted price. Milestones sum to it, which is what makes the
+    // milestone list on a filled job equal to the winning bid.
+    bidCents: job.budgetCents,
+    note:
+      'Accepted. The scope, milestones and delivery dates below are what we '
+      + 'agreed at the start of this contract.',
+    timelineDays: job.durationDays,
+    status: 'COMPLETED' as const,
+    createdAt: daysAgo(finished + job.durationDays + 2),
+  };
+  await db.proposal.upsert({
+    where: { id },
+    create: { id, ...shared },
+    update: shared,
+  });
+
+  await db.job.update({ where: { id: jid }, data: { hiredProposalId: id } });
+
+  const reviewId = `${SEED_PREFIX}review-${job.key}`;
+  const review = {
+    jobId: jid,
+    authorId: userId(job.client),
+    subjectId: freelancerId,
+    rating: job.review.rating,
+    comment: job.review.comment,
+    // A day or two after the final milestone was released, never before it.
+    createdAt: daysAgo(Math.max(1, finished - 1)),
+  };
+  await db.review.upsert({
+    where: { id: reviewId },
+    create: { id: reviewId, ...review },
+    update: review,
+  });
+}
+
+/**
+ * Counters, recomputed from the rows that justify them.
+ *
+ * `Job.proposalsCount`, `Profile.ratingAvg` and `User.totalEarnedCents` are
+ * all denormalised, and all three are *set* here rather than incremented — an
+ * increment would double on the second run, and a seed that is only correct
+ * the first time is worse than no seed.
+ */
+async function reconcile() {
+  for (const job of ALL_JOBS) {
+    const id = jobId(job.key);
+    const proposalsCount = await db.proposal.count({ where: { jobId: id } });
+    await db.job.update({ where: { id }, data: { proposalsCount } });
+  }
+
+  for (const person of FREELANCERS) {
+    const id = userId(person.key);
+
+    const reviews = await db.review.findMany({
+      where: { subjectId: id },
+      select: { rating: true },
+    });
+    const ratingCount = reviews.length;
+    const ratingAvg = ratingCount === 0
+      ? null
+      : reviews.reduce((t, r) => t + r.rating, 0) / ratingCount;
+
+    // Same arithmetic as releaseMilestone: gross less 1%, per milestone.
+    const earned = ALL_JOBS
+      .filter((j) => j.hired === person.key)
+      .flatMap((j) => j.milestones)
+      .reduce((total, m) => total + m.amountCents - platformFee(m.amountCents), 0);
+
+    const bondReturned = earned > 0;
+    await db.user.update({
       where: { id },
       data: {
-        title: job.title, description: job.description, category: job.category,
-        skills: job.skills, budgetCents: job.budgetCents,
-        durationDays: job.durationDays,
+        totalEarnedCents: earned,
+        // The trust bond comes back after the first completed job, which is
+        // what was promised when it was taken.
+        depositReleased: bondReturned,
+        walletBalanceCents: earned + (bondReturned ? TRUST_BOND_CENTS : 0),
       },
     });
-    // Milestones are replaced wholesale: they are owned by the seed and have
-    // no proposals against them on a fresh database.
-    await db.milestone.deleteMany({ where: { jobId: id, released: false, funded: false } });
-  } else {
-    await db.job.create({
-      data: {
-        id, ownerId,
-        title: job.title, description: job.description, category: job.category,
-        skills: job.skills, budgetCents: job.budgetCents,
-        durationDays: job.durationDays, status: 'OPEN',
-      },
-    });
-  }
-
-  const already = await db.milestone.count({ where: { jobId: id } });
-  if (already === 0) {
-    await db.milestone.createMany({
-      data: job.milestones.map((m, position) => ({ ...m, jobId: id, position })),
+    await db.profile.update({
+      where: { userId: id },
+      data: { ratingAvg, ratingCount },
     });
   }
 }
+
+/* ── dates ───────────────────────────────────────────────────────────────── */
+
+const DAY = 24 * 60 * 60 * 1000;
+const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
+
+/** Stable pseudo-random from a key, so a re-run does not shuffle the board. */
+function hash(key: string): number {
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return h;
+}
+
+/**
+ * How long ago a job was posted — spread across three weeks, so the board does
+ * not read as though every listing appeared in the same second. That is the
+ * tell that data is fake.
+ */
+const postedDaysAgo = (key: string) => 1 + (hash(key) % 21);
+
+/**
+ * How long ago a completed contract was released.
+ *
+ * The first version released every one of them five days ago, which put the
+ * same date on every review in the product — thirteen contracts finishing in
+ * the same week, and two reviews on one profile both reading "4 days ago".
+ * Spread over seven months instead, so a work history looks like one.
+ *
+ * `follows` pins the order where a review refers to an earlier one. Derived
+ * from a hash, the sequence held by accident; a repeat client saying "second
+ * engagement" above the review it was second to is the kind of detail that
+ * gives sample data away.
+ */
+function finishedDaysAgo(key: string): number {
+  const job = COMPLETED_JOBS.find((j) => j.key === key);
+  if (job?.follows) {
+    // More recent than the contract it came after, by one to three months.
+    return Math.max(5, finishedDaysAgo(job.follows) - (30 + (hash(`gap-${key}`) % 60)));
+  }
+  return 40 + (hash(`done-${key}`) % 200);
+}
+
+/**
+ * How long ago an account joined.
+ *
+ * This was missed the first time and the profile card said "On Felicek 5
+ * minutes ago" underneath a job posted three weeks earlier. Nobody reads that
+ * as a new client; they read it as a fake one. Six to thirty months back,
+ * which is old enough to have the work history these accounts carry.
+ */
+const joinedDaysAgo = (key: string) => 180 + (hash(`joined-${key}`) % 730);
+
+/* ────────────────────────────────────────────────────────────────────────── */
 
 async function main() {
   noteTarget();
-  assertSkillsAreReal();
+  validate();
 
-  const owners = new Map<string, string>();
   for (const client of CLIENTS) {
-    owners.set(client.key, await seedClient(client));
-    console.log(`  client  ${client.displayName}`);
+    await seedClient(client);
+    console.log(`  client      ${client.displayName}`);
   }
-
-  for (const job of JOBS) {
-    const ownerId = owners.get(job.client);
-    if (!ownerId) throw new Error(`job "${job.key}" references unknown client "${job.client}"`);
-    await seedJob(job, ownerId);
-    console.log(`  job     ${job.title}`);
+  for (const person of FREELANCERS) {
+    await seedFreelancer(person);
+    console.log(`  freelancer  ${person.displayName}`);
   }
+  for (const job of ALL_JOBS) {
+    await seedJob(job);
+  }
+  for (const bid of BIDS) {
+    await seedBid(bid);
+  }
+  for (const job of COMPLETED_JOBS) {
+    await seedContract(job);
+  }
+  await reconcile();
 
   const byCategory = new Map<string, number>();
-  for (const job of JOBS) {
+  for (const job of OPEN_JOBS) {
     byCategory.set(job.category, (byCategory.get(job.category) ?? 0) + 1);
   }
-  console.log(`\n${JOBS.length} sample jobs across ${byCategory.size} categories:`);
-  for (const [category, n] of byCategory) console.log(`  ${n}  ${category}`);
+  console.log(`\n${OPEN_JOBS.length} open jobs across ${byCategory.size} categories:`);
+  for (const [category, n] of [...byCategory].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${n}  ${category}`);
+  }
+  console.log(
+    `\n${FREELANCERS.length} freelancers · ${BIDS.length} live bids · `
+    + `${COMPLETED_JOBS.length} completed contracts with reviews`,
+  );
 }
 
 main()

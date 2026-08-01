@@ -57,7 +57,7 @@ export function matchScore(profile: MatchInput, job: JobForMatch): MatchResult {
   const categoryPoints = sameCategory ? 40 : 0;
   if (sameCategory) reasons.push(`In your category, ${job.category}`);
 
-  // Skills, 45. A job with no skills listed cannot discriminate, so it scores
+  // Skills, 55. A job with no skills listed cannot discriminate, so it scores
   // neutral rather than zero — otherwise a sparse posting is invisible to
   // everyone, which punishes the client's freelancers rather than the client.
   const skillPoints = wanted.length === 0
@@ -71,7 +71,8 @@ export function matchScore(profile: MatchInput, job: JobForMatch): MatchResult {
     );
   }
 
-  // Free text, 15. Catches the skill someone describes but never tagged.
+  // Free text, +10 on top. Catches the skill someone describes but never
+  // tagged. Outside the 100, not inside it — see the note above.
   const text = normalise(`${profile.headline ?? ''} ${profile.bio ?? ''}`);
   const mentioned = wanted.filter((s) => s.length >= 3 && text.includes(s));
   const textPoints = wanted.length === 0

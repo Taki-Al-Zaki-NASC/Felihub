@@ -40,10 +40,31 @@ jobs:
             console.error(all.sort().join('\n'));
           ")
           echo "routes: $pages"
-          if [ "$pages" -lt 10 ]; then
+          if [ "$pages" -lt 20 ]; then
             echo "::error::Only $pages routes — the app would 404. Did a page.tsx go missing?"
             exit 1
           fi
+      # The public pages are the ones a stranger and a crawler see first, and
+      # they are the only ones that must build without a database. A page that
+      # accidentally becomes dynamic-with-a-required-query would still exit
+      # zero here, so check the manifest says what we think it says.
+      - name: The marketing pages must still be static
+        run: |
+          node -e "
+            const m = require('./.next/routes-manifest.json');
+            const want = ['/', '/about', '/pricing', '/how-it-works'];
+            const dyn = m.dynamicRoutes.map(r => r.page);
+            const missing = want.filter(p => !m.staticRoutes.some(r => r.page === p));
+            if (missing.length) {
+              console.error('::error::not prerendered: ' + missing.join(', '));
+              process.exit(1);
+            }
+            if (!dyn.includes('/browse/[id]')) {
+              console.error('::error::/browse/[id] is missing from the build');
+              process.exit(1);
+            }
+            console.log('marketing pages static, /browse/[id] present');
+          "
 
   # Signs up, onboards, verifies, posts, bids, hires and messages, in a real
   # browser against a real Postgres. Unit tests kept passing while the product

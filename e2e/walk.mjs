@@ -297,15 +297,25 @@ console.log('\n=== SAMPLE DATA ===');
       'PostgreSQL query optimisation', 'RLHF and red-teaming audit',
       'RAG pipeline benchmarking', 'Paper reproduction',
       'Customer churn prediction', 'Interactive financial forecasting',
+      'Fine-tune a PyTorch vision transformer', 'Production RAG assistant',
+      'LLM fine-tuning and evaluation', 'Recommender system rebuild',
+      'Speech recognition pipeline', 'MLOps: get three PyTorch models',
     ];
     const missing = titles.filter((t) => !all.includes(t));
     if (missing.length) note('sample data', `not on the board: ${missing.join(', ')}`);
     else ok(`all ${titles.length} sample jobs appear on the board`);
 
+    // Completed contracts exist so the profiles have a history. They must not
+    // be sitting on the board as work somebody can still bid on.
+    if (/Surface finish classification|Redshift to Snowflake migration/.test(all)) {
+      note('sample data', 'a completed contract is showing as open work');
+    } else ok('completed contracts stay off the open board');
+
     for (const [category, expected] of [
       ['Data Engineering', 3],
       ['AI Research & Evaluation', 3],
       ['Data Science & Analytics', 2],
+      ['AI & Machine Learning', 6],
     ]) {
       await open(f, `/jobs?match=0&category=${encodeURIComponent(category)}`);
       const text = await body(f);
@@ -317,16 +327,105 @@ console.log('\n=== SAMPLE DATA ===');
     // A milestone breakdown and a duration are what make a post usable.
     await open(f, '/jobs?match=0&category=' + encodeURIComponent('Data Engineering'));
     await f.getByRole('link', { name: /Automated ETL pipeline/ }).first().click();
+    // Wait for the detail route, not just for the click to return. Four of the
+    // five things checked below — the skills, the budget, the duration — also
+    // appear on the card that was clicked, so reading too early passed on the
+    // listing page and only "Source audit" gave it away. An assertion that can
+    // be satisfied by the page you navigated *from* is not an assertion.
+    await f.waitForURL(/\/jobs\/[^/?]+$/, { timeout: 20000 })
+      .catch(() => note('sample job detail', `click did not navigate — still ${f.url()}`));
     await settle(f);
+    await f.getByRole('heading', { level: 1, name: /Automated ETL pipeline/ })
+      .waitFor({ timeout: 20000 })
+      .catch(() => note('sample job detail', 'the job title never rendered'));
+
     const detail = await body(f);
-    for (const need of ['Airflow', 'Snowflake', 'Source audit', '45 days', '$4,800']) {
-      if (!detail.includes(need)) note('sample job detail', `missing "${need}"`);
-    }
-    if (['Airflow', 'Snowflake', 'Source audit', '45 days', '$4,800']
-      .every((n) => detail.includes(n))) {
-      ok('a sample job shows its skills, duration, budget and milestones');
+    const needs = ['Airflow', 'Snowflake', 'Source audit', '45 days', '$4,800'];
+    const absent = needs.filter((n) => !detail.includes(n));
+    if (absent.length) note('sample job detail', `missing ${absent.map((n) => `"${n}"`).join(', ')}`);
+    else ok('a sample job shows its skills, duration, budget and milestones');
+
+    // Seeded people, and the track record that comes from released escrow.
+    await open(f, '/profile/sample-arif-hossain');
+    // Lower-cased because innerText returns *rendered* text, and these labels
+    // are uppercased in CSS — matching "Jobs completed" against "JOBS
+    // COMPLETED" failed on a heading that was on screen the whole time.
+    const person = (await body(f)).toLowerCase();
+    for (const [label, probe] of [
+      ['the seeded freelancer has a profile', 'computer vision engineer'],
+      ['their reviews are readable', 'what clients said'],
+      ['their completed work is counted', 'jobs completed'],
+      ['their earnings are shown', 'earned on felicek'],
+    ]) {
+      if (person.includes(probe)) ok(label);
+      else note('seeded profile', `missing "${probe}"`);
     }
   }
+}
+
+/* ── The public job board: readable with no account at all ─────────────── */
+console.log('\n=== PUBLIC BROWSE ===');
+{
+  // A fresh context with no cookies. Everything below has to work for someone
+  // who has never signed up, which is the whole point of these pages.
+  const ctx = await browser.newContext();
+  const v = await ctx.newPage();
+  watch(v, 'visitor');
+
+  await v.goto(`${BASE}/browse`, { waitUntil: 'domcontentloaded' });
+  const list = await body(v);
+  if (/sign in|log in to continue/i.test(await v.title())) {
+    note('browse', 'a signed-out visitor was bounced to sign-in');
+  } else ok('a signed-out visitor can read the job board');
+
+  if (!/Fine-tune a PyTorch vision transformer/.test(list)) {
+    ok('no sample data in this database — skipping the public board checks');
+  } else {
+    ok('open work is listed publicly');
+
+    await v.goto(`${BASE}/browse?category=${encodeURIComponent('AI & Machine Learning')}`,
+      { waitUntil: 'domcontentloaded' });
+    const filtered = await body(v);
+    if (/Automated ETL pipeline/.test(filtered)) {
+      note('browse', 'the category filter let a Data Engineering job through');
+    } else ok('the public category filter holds');
+
+    await v.goto(`${BASE}/browse/sample-pytorch-vit-defect-detection`,
+      { waitUntil: 'domcontentloaded' });
+    const one = await body(v);
+    const html = await v.content();
+
+    for (const [label, probe] of [
+      ['the description is public', '90,000 labelled images'],
+      ['the milestones are public', 'Data review, baseline'],
+      ['the budget is public', '$5,800'],
+      ['the proposal count is public', 'proposals so far'],
+    ]) {
+      if (one.includes(probe)) ok(label);
+      else note('public job', `missing "${probe}"`);
+    }
+
+    // The seeded bids on this job are real Proposal rows. None of them may
+    // reach a page that anyone on the internet can read — not in the text and
+    // not in the RSC payload underneath it.
+    for (const [what, probe] of [
+      ['a cover letter', 'I have done this exact shape'],
+      ['a bid amount', '$5,600'],
+      ['a bidder’s name', 'Arif Hossain'],
+    ]) {
+      if (html.includes(probe)) note('public job', `${what} is exposed to the public`);
+      else ok(`${what} is not exposed to the public`);
+    }
+
+    // A closed job must not stay on a page that advertises available work.
+    // Fetched rather than navigated to: rendering a 404 logs a console error,
+    // and the watcher would report this deliberate one as a failure.
+    const gone = await v.request.get(`${BASE}/browse/sample-past-vision-yield-inspection`);
+    if (gone.status() !== 404) {
+      note('public job', `a completed contract is still listed as open work (${gone.status()})`);
+    } else ok('completed contracts are not served as open work');
+  }
+  await ctx.close();
 }
 
 /* ── Privacy: a competitor must not be able to read another bid ────────── */
