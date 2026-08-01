@@ -13,6 +13,8 @@ import { ProposalForm } from '@/components/jobs/proposal-form';
 import { MilestoneList } from '@/components/jobs/milestone-list';
 import { ProposalList } from '@/components/jobs/proposal-list';
 import { proposalsForViewer } from '@/server/services/proposals';
+import { signalFor, signalsFor } from '@/server/services/authorship';
+import { AuthorshipNote } from '@/components/ui/authorship-note';
 import { ChallengeBuilder } from '@/components/jobs/challenge-builder';
 
 export async function generateMetadata({
@@ -63,6 +65,15 @@ export default async function JobDetail({
   // Proposal table; it decides per viewer which columns are even fetched.
   const view = await proposalsForViewer(job.id, user.id);
   const mine = view.own;
+
+  // Only for bids this viewer may read in full. A note saying "pasted" beside
+  // a proposal whose contents are hidden would say something about a bid the
+  // viewer is entitled to know nothing about.
+  const readable = view.proposals.filter((p) => p.visible).map((p) => p.id);
+  const [noteSignals, descriptionSignal] = await Promise.all([
+    signalsFor('PROPOSAL_NOTE', readable),
+    signalFor('JOB_DESCRIPTION', job.id),
+  ]);
   const hired = view.proposals.some((p) => p.status === 'ACCEPTED');
 
   const account = await db.user.findUniqueOrThrow({
@@ -74,7 +85,7 @@ export default async function JobDetail({
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
       <div>
         <PageHeader title={job.title}
           description={`${job.category} · posted ${ago(job.createdAt)} by ${job.owner.displayName}`
@@ -102,6 +113,12 @@ export default async function JobDetail({
           <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">
             {job.description}
           </p>
+
+          {/* A freelancer is about to spend an hour writing a proposal against
+              this brief. Whether the client typed it or pasted it in whole is
+              worth the one line it takes to say. */}
+          <AuthorshipNote signal={descriptionSignal} self={isOwner}
+            className="mt-4" />
 
           {job.skills.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-1.5 border-t border-border pt-4">
@@ -186,7 +203,8 @@ export default async function JobDetail({
               isOwner={isOwner}
               jobOpen={job.status === 'OPEN'}
               viewerUsername={user.username}
-              firstMilestoneCents={job.milestones[0]?.amountCents ?? null} />
+              firstMilestoneCents={job.milestones[0]?.amountCents ?? null}
+              signals={noteSignals} />
           )}
         </Card>
       </div>

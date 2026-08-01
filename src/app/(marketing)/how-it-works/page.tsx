@@ -50,7 +50,7 @@ export default function HowItWorks() {
           Until both are cleared you can look around, but you cannot post, bid
           or message.
         </p>
-        <div className="mt-7 grid gap-4 md:grid-cols-3">
+        <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Gate
             icon={ScrollText}
             step="1"
@@ -88,7 +88,7 @@ export default function HowItWorks() {
             For clients, agencies and startups.
           </p>
 
-          <div className="mt-8 grid gap-x-10 gap-y-8 lg:grid-cols-2">
+          <div className="mt-8 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
             <Flow
               tone="teal"
               steps={[
@@ -156,7 +156,7 @@ export default function HowItWorks() {
           The short version: bidding is free, and it stays free.
         </p>
 
-        <div className="mt-8 grid gap-x-10 gap-y-8 lg:grid-cols-2">
+        <div className="mt-8 grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
           <Flow
             tone="violet"
             steps={[
@@ -218,7 +218,7 @@ export default function HowItWorks() {
           <h2 className="font-serif text-2xl font-semibold sm:text-3xl">
             When it goes wrong
           </h2>
-          <div className="mt-7 grid gap-4 md:grid-cols-3">
+          <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-3">
             <Aside
               icon={Lock}
               title="Escrow does not auto-release"

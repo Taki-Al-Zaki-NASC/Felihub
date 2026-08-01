@@ -20,8 +20,25 @@ import { db } from '@/server/db';
  */
 export const dynamic = 'force-dynamic';
 
+/**
+ * Every response revalidates, and the ETag makes that nearly free.
+ *
+ * This URL is stable per user but its *content* changes the moment they upload
+ * a photo — and the placeholder used to be sent with `max-age=300,
+ * stale-while-revalidate=86400`, cached under the same URL as the real thing.
+ * So anyone who opened a profile before the photo existed kept being shown the
+ * initial for five minutes afterwards, and could keep being shown it for a
+ * day. "I uploaded my photo and it is still not showing" is that header, not
+ * the upload.
+ *
+ * `no-cache` does not mean "do not store" — the browser keeps the bytes and
+ * asks whether they are still current. With an ETag the answer is a 304 with
+ * no body, which costs about what the stale hit cost and is always right.
+ */
+const REVALIDATE = 'public, no-cache';
+
 /** A neutral placeholder with the initial, so a missing photo is still one
- *  cheap cached request rather than a branch in every component. */
+ *  cheap request rather than a branch in every component. */
 function fallback(name: string): Response {
   const initial = (name.trim()[0] ?? '?').toUpperCase()
     .replace(/[<>&"']/g, '?');
@@ -33,7 +50,10 @@ function fallback(name: string): Response {
   return new Response(svg, {
     headers: {
       'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+      // Tagged as well, so a repeat request for a placeholder is a 304 rather
+      // than a re-send — and flips to the real photo the moment there is one.
+      ETag: `"initial-${initial}"`,
+      'Cache-Control': REVALIDATE,
     },
   });
 }
@@ -74,7 +94,7 @@ export async function GET(
       'Content-Type': mime,
       'Content-Length': String(bytes.length),
       ETag: etag,
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+      'Cache-Control': REVALIDATE,
     },
   });
 }

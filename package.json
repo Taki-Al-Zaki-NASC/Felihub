@@ -11,7 +11,8 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "test:e2e": "node e2e/walk.mjs",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "authorship:eval": "tsx tools/authorship-eval.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

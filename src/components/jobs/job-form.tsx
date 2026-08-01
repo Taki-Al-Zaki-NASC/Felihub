@@ -42,7 +42,7 @@ export function JobForm() {
         )}
       </div>
 
-      <TextArea label="Description" name="description" rows={8}
+      <TextArea label="Description" name="description" rows={8} authored
         placeholder="The scope, what you expect delivered, and how you will judge it finished."
         hint="Detail here is what separates useful bids from guesses."
         error={fieldError('description')} />

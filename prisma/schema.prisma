@@ -374,6 +374,41 @@ model Review {
   @@index([subjectId, createdAt])
 }
 
+/**
+ * How a piece of writing arrived: typed here, or pasted from somewhere else.
+ *
+ * A separate table rather than columns on Profile, Job and Proposal, because
+ * the three of them want identical fields and a fourth will want them too.
+ *
+ * `score` is the stylometric model's output and is deliberately not shown on
+ * its own anywhere — see src/lib/authorship/index.ts for why a percentage is
+ * the wrong thing to put next to somebody's writing, and why nothing in this
+ * table is allowed to affect matching, ranking or eligibility.
+ */
+model ContentSignal {
+  id        String   @id @default(cuid())
+  /** "PROFILE_BIO" | "JOB_DESCRIPTION" | "PROPOSAL_NOTE" */
+  kind      String
+  /** The id of the row this describes. */
+  refId     String
+  /** "TYPED" | "PASTED" | "REVIEW" | "UNKNOWN" */
+  band      String
+  score     Int      @default(0)
+  /** The sentences shown to a reader. Stored so the note next to a text does
+   *  not change meaning when the model is retuned. */
+  reasons   String[]
+  /** Counts only — never keystrokes, never clipboard contents. */
+  typed     Int      @default(0)
+  pasted    Int      @default(0)
+  words     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kind, refId])
+  @@index([band])
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String

@@ -503,6 +503,86 @@ await open(c, jobUrl.replace(BASE, ''));
   else ok('the owner sees bid amounts');
 }
 
+/* ── Authorship: how the writing got here, not what it reads like ──────── */
+console.log('\n=== AUTHORSHIP ===');
+{
+  // The freelancer's bio was entered into the form during onboarding, so their
+  // own profile should say so. `self` wording, because the person who wrote it
+  // sees the same note the client does — that is the design, not a detail.
+  await open(f, '/settings');
+  const me = (await body(f)).match(/Username\s*\n?@([a-z0-9-]+)/)?.[1];
+  if (!me) {
+    note('authorship', 'could not read the freelancer username from settings');
+  } else {
+    await open(f, `/profile/${me}`);
+    const own = await body(f);
+    if (/Shown to readers: typed here/i.test(own)) ok('a typed bio is reported as typed');
+    else note('authorship', `own bio not marked as typed — ${own.slice(0, 200)}`);
+
+    // The client reads the same thing without the second-person wording.
+    await open(c, `/profile/${me}`);
+    const seenByClient = await body(c);
+    if (/Typed here/i.test(seenByClient) && !/Shown to readers/i.test(seenByClient)) {
+      ok('the client sees the same note, worded for a reader');
+    } else note('authorship', 'the client does not see the bio note');
+  }
+
+  // Now the pasted path, on a seeded job. A real paste event, so the capture
+  // sees what it would see from a person using the clipboard.
+  const PASTED = 'Thank you for considering my proposal for this exciting '
+    + 'opportunity. I bring extensive experience in machine learning, computer '
+    + 'vision and model deployment to every engagement. My approach is '
+    + 'methodical and transparent, ensuring stakeholders remain informed at '
+    + 'every stage of the project. First I would conduct a thorough assessment '
+    + 'of your existing data and establish clear evaluation criteria aligned '
+    + 'with your business objectives.';
+
+  await open(f, '/jobs/sample-pytorch-vit-defect-detection');
+  if (!(await f.locator('textarea[name="note"]').count())) {
+    ok('no sample data in this database — skipping the paste check');
+  } else {
+    await f.locator('input[name="bid"]').fill('$5,500');
+    await f.evaluate((text) => {
+      const ta = document.querySelector('textarea[name="note"]');
+      ta.focus();
+      const dt = new DataTransfer();
+      dt.setData('text/plain', text);
+      ta.dispatchEvent(new ClipboardEvent('paste', {
+        clipboardData: dt, bubbles: true, cancelable: true,
+      }));
+      // A synthetic paste event does not insert the text itself.
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(ta, text);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      ta.blur();
+    }, PASTED);
+
+    const captured = await f.evaluate(
+      () => document.querySelector('input[name="note__provenance"]')?.value);
+    const parsed = captured ? JSON.parse(captured) : {};
+    if (parsed.pasted > 0 && parsed.typed === 0) ok('a paste is recorded as a paste');
+    else note('authorship', `paste not captured — ${captured}`);
+
+    await f.locator('input[name="timelineDays"]').fill('40').catch(() => {});
+    await f.getByRole('button', { name: /send|submit|proposal|bid/i }).first().click();
+    await f.waitForTimeout(1500);
+    await settle(f);
+
+    await open(f, '/jobs/sample-pytorch-vit-defect-detection');
+    const afterPaste = await body(f);
+    if (/pasted/i.test(afterPaste)) ok('a pasted proposal is reported as pasted');
+    else note('authorship', 'the pasted proposal carries no note');
+
+    // The whole point of the fairness argument: nothing about how the text
+    // *reads* may reach a reader. If this string ever appears, the style model
+    // has been switched on and the eval gate has been ignored.
+    if (/AI-generated|likely AI|machine-generated|\d+% AI/i.test(afterPaste)) {
+      note('authorship', 'a style verdict is being shown to a reader');
+    } else ok('no style verdict is shown to anyone');
+  }
+}
+
 /* ── Hiring, which is where the money moves ───────────────────────────── */
 console.log('\n=== HIRE ===');
 await open(c, `/wallet`);

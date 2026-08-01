@@ -6,6 +6,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { HireButton } from '@/components/jobs/hire-button';
 import type { VisibleProposal } from '@/server/services/proposals';
+import type { StoredSignal } from '@/server/services/authorship';
+import { AuthorshipNote } from '@/components/ui/authorship-note';
 
 /**
  * The bid list.
@@ -15,12 +17,21 @@ import type { VisibleProposal } from '@/server/services/proposals';
  * component cannot render an amount it was not given and TypeScript will not
  * let anyone add the attempt.
  */
-export function ProposalList({ proposals, isOwner, jobOpen, viewerUsername, firstMilestoneCents }: {
+export function ProposalList({
+  proposals, isOwner, jobOpen, viewerUsername, firstMilestoneCents, signals,
+}: {
   proposals: VisibleProposal[];
   isOwner: boolean;
   jobOpen: boolean;
   viewerUsername: string;
   firstMilestoneCents: number | null;
+  /**
+   * How each cover letter arrived, by proposal id. Only ever populated for
+   * rows this viewer may read in full — a note saying "pasted" next to a bid
+   * whose contents are hidden would leak something about a bid nobody is
+   * entitled to know anything about.
+   */
+  signals?: Map<string, StoredSignal>;
 }) {
   return (
     <ul className="divide-y divide-border">
@@ -74,6 +85,8 @@ export function ProposalList({ proposals, isOwner, jobOpen, viewerUsername, firs
                 <p className="mt-3 whitespace-pre-wrap text-sm text-ink-muted">
                   {p.note}
                 </p>
+                <AuthorshipNote signal={signals?.get(p.id) ?? null}
+                  self={isMine} className="mt-3" />
                 <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
                   {p.timelineDays != null && (
                     <span>Delivery in {p.timelineDays} days</span>

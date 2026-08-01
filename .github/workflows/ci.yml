@@ -27,6 +27,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+
+      # The authorship model may not be used to flag anything until it stops
+      # flagging human second-language writing. The eval is the gate, and it
+      # exits non-zero if the flag is ever switched on while it still fails —
+      # see src/lib/authorship/index.ts.
+      - run: npm run authorship:eval
+
       - run: npm run build
       - name: The build must produce actual routes
         run: |

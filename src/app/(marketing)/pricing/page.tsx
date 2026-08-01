@@ -30,7 +30,7 @@ export default function Pricing() {
         platform quietly charges more than it advertises.
       </p>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-2">
+      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-teal/30 bg-teal-tint p-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-teal-deep">
             Felicek fee
@@ -75,7 +75,7 @@ export default function Pricing() {
         what makes an account cost something to abandon, which is what keeps the
         marketplace free of throwaway accounts without charging per bid.
       </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {DEPOSITS.map(([label, amount, note]) => (
           <div key={label}
             className="rounded-lg border border-border bg-surface p-5">

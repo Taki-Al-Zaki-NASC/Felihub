@@ -59,3 +59,29 @@ ALTER TABLE "Proposal" ADD COLUMN IF NOT EXISTS "attachmentUrl" TEXT;
 -- The client's calendar estimate, distinct from Proposal.timelineDays, which
 -- is what a freelancer offers back.
 ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "durationDays" INTEGER;
+
+-- ── Authorship signals: how a piece of writing arrived ───────────────────
+-- Typed into the form, or pasted in from somewhere else. A separate table
+-- because Profile, Job and Proposal all want the same fields.
+--
+-- Counts only — never keystrokes, never clipboard contents. `score` is the
+-- stylometric model's output, stored for calibration and shown to nobody:
+-- see src/lib/authorship/index.ts for the measurement that made displaying it
+-- unacceptable.
+CREATE TABLE IF NOT EXISTS "ContentSignal" (
+  "id"        TEXT NOT NULL,
+  "kind"      TEXT NOT NULL,
+  "refId"     TEXT NOT NULL,
+  "band"      TEXT NOT NULL,
+  "score"     INTEGER NOT NULL DEFAULT 0,
+  "reasons"   TEXT[],
+  "typed"     INTEGER NOT NULL DEFAULT 0,
+  "pasted"    INTEGER NOT NULL DEFAULT 0,
+  "words"     INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "ContentSignal_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ContentSignal_kind_refId_key"
+  ON "ContentSignal"("kind", "refId");
+CREATE INDEX IF NOT EXISTS "ContentSignal_band_idx" ON "ContentSignal"("band");

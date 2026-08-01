@@ -80,7 +80,7 @@ export default function Home() {
             </dl>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <RoleCard
               tone="teal"
               title="I need work done"
@@ -117,7 +117,7 @@ export default function Home() {
             Open projects, readable without an account. Heaviest right now in
             applied AI, data engineering and evaluation work.
           </p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {CATEGORIES.map((name) => (
               // These used to point at the sign-up form. A category tile that
               // asks for an email instead of showing the category is the
@@ -135,7 +135,7 @@ export default function Home() {
       {/* How it works */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
         <h2 className="font-serif text-2xl font-semibold sm:text-3xl">How it works</h2>
-        <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-14">
+        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
           <Steps title="If you're hiring" steps={CLIENT_STEPS} tone="teal" />
           <Steps title="If you're freelancing" steps={FREELANCER_STEPS} tone="violet" />
         </div>
@@ -151,7 +151,7 @@ export default function Home() {
             Each of these is a constraint in the database, not a setting in an
             admin panel. The app cannot bypass them, and neither can we.
           </p>
-          <div className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Claim icon={ShieldCheck} title="No unverified account acts"
               body="Posting and bidding need identity on file and a cleared deposit. An account can never mark its own payment as received." />
             <Claim icon={EyeOff} title="Your work stays yours"

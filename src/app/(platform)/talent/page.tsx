@@ -112,7 +112,7 @@ export default async function Talent({
             : 'Freelancers appear here as soon as they finish verification.'}
           cta={term ? { href: '/talent', label: 'Clear search' } : undefined} />
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {people.map((p) => (
             // `min-w-0` is load-bearing. A grid item's default minimum is its
             // content's min-content width, and a card holding a long display

@@ -13,6 +13,7 @@
 -- that already exist, which is the intended protection.
 
 -- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -240,6 +241,23 @@ CREATE TABLE "Review" (
 );
 
 -- CreateTable
+CREATE TABLE "ContentSignal" (
+    "id" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "refId" TEXT NOT NULL,
+    "band" TEXT NOT NULL,
+    "score" INTEGER NOT NULL DEFAULT 0,
+    "reasons" TEXT[],
+    "typed" INTEGER NOT NULL DEFAULT 0,
+    "pasted" INTEGER NOT NULL DEFAULT 0,
+    "words" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ContentSignal_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Notification" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -327,6 +345,12 @@ CREATE INDEX "Review_subjectId_createdAt_idx" ON "Review"("subjectId", "createdA
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Review_jobId_authorId_key" ON "Review"("jobId", "authorId");
+
+-- CreateIndex
+CREATE INDEX "ContentSignal_band_idx" ON "ContentSignal"("band");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ContentSignal_kind_refId_key" ON "ContentSignal"("kind", "refId");
 
 -- CreateIndex
 CREATE INDEX "Notification_userId_read_createdAt_idx" ON "Notification"("userId", "read", "createdAt");

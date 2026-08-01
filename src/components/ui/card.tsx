@@ -65,8 +65,13 @@ export function Empty({ icon: Icon, title, body, cta }: {
       <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-tint text-ink-faint">
         <Icon className="h-5 w-5" />
       </span>
-      <h3 className="mt-4 font-semibold">{title}</h3>
-      <p className="mt-1.5 max-w-sm text-sm text-ink-muted">{body}</p>
+      {/* `w-full` matters here. The parent is `flex flex-col items-center`, so
+          children are sized to their *max-content* width rather than stretched
+          — which turned `max-w-sm` from a cap into a 384px floor, and pushed
+          every card holding an empty state wider than a 390px phone. With
+          `w-full` the width is min(100%, 24rem), which is what was meant. */}
+      <h3 className="mt-4 w-full font-semibold">{title}</h3>
+      <p className="mt-1.5 w-full max-w-sm text-sm text-ink-muted">{body}</p>
       {cta && (
         <Button asChild className="mt-6">
           <Link href={cta.href}>{cta.label}</Link>

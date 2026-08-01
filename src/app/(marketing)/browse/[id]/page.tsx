@@ -94,7 +94,7 @@ export default async function PublicJob({
         {' · '}{job.proposalsCount} {job.proposalsCount === 1 ? 'proposal' : 'proposals'} so far
       </p>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
           <Card className="p-5">
             <div className="flex flex-wrap items-center gap-2">

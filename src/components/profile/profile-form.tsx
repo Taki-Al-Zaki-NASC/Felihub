@@ -63,7 +63,7 @@ export function ProfileForm({
           : 'What you do, so freelancers know who they are talking to.'}
         error={fieldError('headline')} />
 
-      <TextArea label="About" name="bio" defaultValue={defaults.bio}
+      <TextArea label="About" name="bio" defaultValue={defaults.bio} authored
         placeholder={isFreelancer
           ? 'What you build, the problems you are good at, and how you work.'
           : 'What your company does and the kind of help you usually need.'}

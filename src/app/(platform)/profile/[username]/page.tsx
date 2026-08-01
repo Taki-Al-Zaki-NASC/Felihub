@@ -9,6 +9,8 @@ import { Badge, Card, CardHeader, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { parseExperience } from '@/lib/experience';
+import { signalFor } from '@/server/services/authorship';
+import { AuthorshipNote } from '@/components/ui/authorship-note';
 
 export async function generateMetadata({
   params,
@@ -71,6 +73,7 @@ export default async function Profile({
   const isSelf = person.id === viewer.id;
   const isFreelancer = person.role === 'FREELANCER';
   const experience = parseExperience(person.profile?.experience);
+  const bioSignal = await signalFor('PROFILE_BIO', person.id);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -168,9 +171,15 @@ export default async function Profile({
         )}
 
         {person.profile?.bio && (
-          <p className="mt-5 whitespace-pre-wrap border-t border-border pt-4 text-sm leading-relaxed">
-            {person.profile.bio}
-          </p>
+          <>
+            <p className="mt-5 whitespace-pre-wrap border-t border-border pt-4 text-sm leading-relaxed">
+              {person.profile.bio}
+            </p>
+            {/* `self` when you are reading your own profile: whoever wrote the
+                text sees the same note the client sees. A score kept from the
+                person it describes is a file, not context. */}
+            <AuthorshipNote signal={bioSignal} self={isSelf} className="mt-3" />
+          </>
         )}
 
         {person.profile?.portfolioUrl && (

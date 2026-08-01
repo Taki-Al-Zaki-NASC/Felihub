@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/server/db';
+import { provenanceFrom } from '@/lib/authorship';
+import { provenanceField } from '@/lib/authorship/field';
+import { record } from '@/server/services/authorship';
 import { requireUser } from '@/server/auth';
 import { parseMoney } from '@/lib/money';
 import { experienceSchema } from '@/lib/experience';
@@ -116,6 +119,10 @@ export async function saveProfileAction(
       },
     }),
   ]);
+
+  // Best-effort, and after the write: how the bio arrived is context next to
+  // it, and must never be the reason saving a profile fails.
+  await record('PROFILE_BIO', user.id, d.bio, provenanceFrom(form.get(provenanceField('bio'))));
 
   revalidatePath('/', 'layout');
   // First time through, onboarding hands straight to verification — the two

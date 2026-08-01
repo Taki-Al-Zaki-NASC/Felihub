@@ -63,7 +63,7 @@ async function HirerDashboard({ userId, name }: { userId: string; name: string }
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Posting balance" value={money(account.postingBalanceCents)}
           hint="Yours — spendable into escrow" />
         <Stat label="Held in escrow" value={money(escrow)}
@@ -74,7 +74,7 @@ async function HirerDashboard({ userId, name }: { userId: string; name: string }
           value={String(jobs.filter((j) => j.status === 'OPEN').length)} />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader title="Your postings" action={
             <Button asChild variant="outline" size="sm">
@@ -171,7 +171,7 @@ async function FreelancerDashboard({ userId, name }: { userId: string; name: str
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Available" value={money(account.walletBalanceCents)}
           hint="Withdrawable now" />
         <Stat label="Earned all time" value={money(account.totalEarnedCents)} />
@@ -183,7 +183,7 @@ async function FreelancerDashboard({ userId, name }: { userId: string; name: str
             : 'Returns after your first completed job'} />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
           <CardHeader title="Your bids" action={
             <Button asChild variant="outline" size="sm">

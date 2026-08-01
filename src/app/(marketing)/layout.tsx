@@ -68,7 +68,7 @@ export default function MarketingLayout({
 
       <footer className="border-t border-border bg-ink-strong py-12 text-white/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 sm:grid-cols-[1.5fr_1fr_1fr]">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-[1.5fr_1fr_1fr]">
             <div>
               <span className="flex items-center gap-2 font-serif text-lg font-semibold text-white">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10">

@@ -46,7 +46,7 @@ export default async function WalletPage() {
       <PageHeader title="Wallet"
         description="Where your money is, and every movement that put it there." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {hires ? (
           <Stat label="Posting balance" value={money(account.postingBalanceCents)}
             hint="Spendable into escrow" />

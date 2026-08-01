@@ -106,7 +106,10 @@ export default async function Jobs({
             aria-label="Search jobs"
             className="min-h-[44px] w-full rounded-md border border-border-strong bg-surface pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal" />
         </div>
-        <div className="flex items-center gap-2">
+        {/* Wraps. Category, match and Apply come to 448px side by side, which
+            is wider than a phone — and the group was the one child of the
+            wrapping form that could not itself wrap. */}
+        <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="category" className="sr-only">Category</label>
           <select id="category" name="category" defaultValue={chosen ?? ''}
             className="min-h-[44px] rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">

@@ -63,7 +63,7 @@ export function ChallengeBuilder({ jobId, existingMode }: {
 
       <fieldset>
         <legend className="text-sm font-semibold">Kind of challenge</legend>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {CHALLENGE_MODES.map((m) => (
             <label key={m}
               className={`flex min-h-[44px] cursor-pointer items-center justify-center rounded-md border px-3 text-sm font-medium
@@ -149,7 +149,7 @@ export function ChallengeBuilder({ jobId, existingMode }: {
           error={state?.fieldErrors?.prompt} />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="maxAttempts" className="block text-sm font-semibold">
             Attempts allowed

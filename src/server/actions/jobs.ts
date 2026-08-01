@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/server/db';
+import { provenanceFrom } from '@/lib/authorship';
+import { provenanceField } from '@/lib/authorship/field';
+import { record } from '@/server/services/authorship';
 import { requireUser } from '@/server/auth';
 import { canBid, canPostJob } from '@/server/services/verification';
 import { parseMoney } from '@/lib/money';
@@ -105,6 +108,9 @@ export async function createJobAction(
     select: { id: true },
   });
 
+  await record('JOB_DESCRIPTION', created.id, parsed.data.description,
+    provenanceFrom(form.get(provenanceField('description'))));
+
   revalidatePath('/jobs');
   revalidatePath('/dashboard');
   redirect(`/jobs/${created.id}`);
@@ -201,6 +207,15 @@ export async function submitProposalAction(
       },
     });
   });
+
+  const bid = await db.proposal.findUnique({
+    where: { jobId_freelancerId: { jobId, freelancerId: user.id } },
+    select: { id: true },
+  });
+  if (bid) {
+    await record('PROPOSAL_NOTE', bid.id, parsed.data.note,
+      provenanceFrom(form.get(provenanceField('note'))));
+  }
 
   revalidatePath(`/jobs/${jobId}`);
   return { ok: true };

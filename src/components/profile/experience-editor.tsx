@@ -70,7 +70,7 @@ export function ExperienceEditor({ initial }: { initial: ExperienceEntry[] }) {
               </button>
             </div>
 
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Cell label="Job title" value={row.title}
                 onChange={(v) => update(i, { title: v })}
                 placeholder="Senior Flutter Developer" />

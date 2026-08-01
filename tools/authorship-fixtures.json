@@ -1,0 +1,81 @@
+[
+  {
+    "label": "assisted — freelancer bio, generic polish",
+    "assisted": true,
+    "text": "I am a passionate and dedicated software developer with a proven track record of delivering high-quality solutions. Throughout my career, I have had the opportunity to work on a wide range of projects, leveraging cutting-edge technologies to drive meaningful results. My comprehensive understanding of modern development practices allows me to navigate complex challenges with confidence. Furthermore, I pride myself on clear communication, meticulous attention to detail, and a collaborative approach. I am committed to delivering seamless experiences that exceed expectations and provide lasting value to every client I work with."
+  },
+  {
+    "label": "assisted — job description, corporate register",
+    "assisted": true,
+    "text": "We are seeking a talented and experienced data engineer to join our dynamic team. In today's fast-paced landscape, robust data infrastructure plays a crucial role in driving informed decision-making across the organisation. The ideal candidate will possess a comprehensive understanding of modern data pipelines, a meticulous approach to data quality, and the ability to navigate the complexities of large-scale systems. You will be responsible for designing, building, and maintaining scalable solutions that empower our stakeholders. Additionally, you will collaborate closely with cross-functional teams to deliver transformative outcomes."
+  },
+  {
+    "label": "assisted — proposal, structured and even",
+    "assisted": true,
+    "text": "Thank you for considering my proposal for this exciting opportunity. I bring extensive experience in machine learning, computer vision, and model deployment to every engagement. My approach is methodical and transparent, ensuring that stakeholders remain informed at every stage of the project. First, I would conduct a thorough assessment of your existing data. Second, I would establish clear evaluation criteria aligned with your business objectives. Finally, I would deliver a production-ready solution with comprehensive documentation. I am confident that my expertise makes me an excellent fit for this role."
+  },
+  {
+    "label": "assisted — bio, list-heavy",
+    "assisted": true,
+    "text": "As a seasoned full stack developer, I specialise in building applications that are performant, maintainable, and scalable. My technical toolkit encompasses React, Node.js, and PostgreSQL, alongside a deep familiarity with cloud infrastructure. I have successfully delivered projects for startups, enterprises, and non-profit organisations. What sets me apart is my commitment to understanding the business context behind every technical decision. I believe that great software emerges from the intersection of technical excellence, thoughtful design, and genuine empathy for the end user."
+  },
+  {
+    "label": "human/native — bio with asides and typos",
+    "assisted": false,
+    "secondLanguage": false,
+    "text": "I've been building Flutter apps for about four years now, mostly for small teams who need something shipped rather than something perfect. Before that I did backend work in Go, which turns out to be useful more often than you'd think. Honestly the part I'm best at is the boring bit — offline sync, state that survives a crash, the stuff nobody demos. I don't do design. If you need someone to make it pretty, hire a designer and I'll build what they draw. Happy to talk through a project before you commit to anything."
+  },
+  {
+    "label": "human/native — job post, irritable and specific",
+    "assisted": false,
+    "secondLanguage": false,
+    "text": "Our month-end invoice run takes eleven hours. Last year it took two. We've thrown hardware at it twice and it didn't help, so now we'd like someone to actually find out what's wrong. You'd get pg_stat_statements output, EXPLAIN plans, and a read replica to test against. What we want back is a report with before and after timings, plus migrations we can read and apply ourselves. We are not looking for someone to rewrite the application — the last consultant suggested that and it's why we're here. Postgres 15 on RDS, about 900GB."
+  },
+  {
+    "label": "human/native — proposal, direct",
+    "assisted": false,
+    "secondLanguage": false,
+    "text": "I'll be honest about where I'm strong and where I'm not. The imbalance handling and the evaluation design I do routinely — I've shipped four of these. A ViT backbone is not my daily driver, so if you want someone who's done a dozen with that exact architecture, I'm not them. The thing I'd push on: at 4% positives, your labels are probably the bottleneck, not your model. I'd want to measure that in week one before anyone agrees a recall target. That's usually an uncomfortable conversation and it's usually the one that matters."
+  },
+  {
+    "label": "human/second-language — careful formal bio",
+    "assisted": false,
+    "secondLanguage": true,
+    "text": "I am a software engineer from Dhaka with more than five years of experience. My main area of work is mobile application development using Flutter and Dart. I have completed many projects for local companies and also for international clients. I always try to understand the requirement clearly before starting the work. Communication is very important for me and I give regular updates to my clients. I am available for both short term and long term projects. Please feel free to contact me if you need any clarification about my experience."
+  },
+  {
+    "label": "human/second-language — formal proposal",
+    "assisted": false,
+    "secondLanguage": true,
+    "text": "Respected sir, I have read your job description carefully and I am confident that I can complete this work. I have three years of experience in data analysis using Python and SQL. Previously I have worked on similar projects where I have to clean the data and prepare the reports for management. I will provide daily updates about the progress of the work. Moreover, I am available to discuss the requirements at your convenient time. I request you to give me one chance to prove my capability. Thank you for your valuable time and consideration."
+  },
+  {
+    "label": "human/second-language — technical, taught register",
+    "assisted": false,
+    "secondLanguage": true,
+    "text": "My specialisation is natural language processing for Bengali language. There are many challenges in this area because the available datasets are limited and the writing is often in romanised form. In my previous work, I have developed an intent classification system which handles both Bengali script and romanised text. The accuracy was improved from 71 percent to 89 percent after we prepared a proper evaluation set. Furthermore, I have experience in deploying models on limited hardware, which is often a requirement for companies in this region."
+  },
+  {
+    "label": "human/second-language — plain, short sentences",
+    "assisted": false,
+    "secondLanguage": true,
+    "text": "I work as a data engineer since 2019. My tools are Airflow, dbt and Snowflake. I have built pipelines for retail companies. The main problem in these projects is data quality. Many source systems send files in different formats. I write tests for every pipeline so the errors are caught early. I also prepare documentation so other engineers can maintain the work after me. I am comfortable to work in a team and also independently. My English is good for written communication and acceptable for meetings."
+  },
+  {
+    "label": "human/native — bio, very informal",
+    "assisted": false,
+    "secondLanguage": false,
+    "text": "Data scientist, mostly experiments and causal inference. I've read a lot of A/B tests that got called wins and were basically noise, and telling clients that is probably the most useful thing I do. Not always the most popular thing. I work in Python, I'm fine in R if your team already lives there, and I'll write the SQL myself rather than wait for someone to build me a view. Based in Valencia, work across European hours, and I'm slow to reply on Fridays because that's when I do the actual thinking."
+  },
+  {
+    "label": "assisted — bio with a human edit pass",
+    "assisted": true,
+    "text": "I am a machine learning engineer specialising in computer vision and edge deployment. Over the past eight years I have delivered defect detection systems for manufacturing clients across three continents. My approach emphasises rigorous evaluation, transparent communication, and solutions that remain maintainable long after handover. I have extensive experience with PyTorch, ONNX, and production inference optimisation. Each engagement begins with a thorough assessment of the available data, because in my experience the quality of labels determines the ceiling of any model far more than the choice of architecture does."
+  },
+  {
+    "label": "human/native — long paragraph, one thought",
+    "assisted": false,
+    "secondLanguage": false,
+    "text": "The thing nobody tells you about migrating a warehouse is that the migration isn't the hard part — running both of them side by side for three weeks and reconciling every number is, and that's where you find out which of your existing reports have quietly been wrong for years. On the last one we found eleven. Two were rounding. The other nine we'd been sending to customers. So when I quote a migration I quote the reconciliation period as its own milestone, because clients who cut it are the ones who call back in six months."
+  }
+]

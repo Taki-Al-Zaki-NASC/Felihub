@@ -57,7 +57,7 @@ export function ProposalForm({
         hint="What you would charge for the whole job. Private to the client."
         error={state?.fieldErrors?.bid} />
 
-      <TextArea label="Your approach" name="note" rows={6}
+      <TextArea label="Your approach" name="note" rows={6} authored
         defaultValue={existingNote}
         placeholder="How you would tackle it, and what you have built like it."
         hint="Only the client reads this. Other freelancers cannot see it."

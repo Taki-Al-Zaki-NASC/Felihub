@@ -61,7 +61,7 @@ npx prisma db push        # needs the repo checked out locally
 
 …or, with no local setup at all, paste **`prisma/init.sql`** into your
 provider's SQL editor (Supabase → SQL Editor → New query) and run it. That
-file is generated from `prisma/schema.prisma` and creates all 14 tables with
+file is generated from `prisma/schema.prisma` and creates all 15 tables with
 their enums, indexes and foreign keys.
 
 ### If the site feels slow
@@ -192,6 +192,8 @@ The public site and the full signed-in product are built and working:
 - **Freelancers** — dashboard, job board filtered to 95% matches on category
   and skills, bid free with two revisions, skill challenges, contracts, wallet
 - **Both** — messages with threads, notifications, public profiles, settings
+- **Authorship** — every bio, brief and cover letter records whether it was
+  typed or pasted, shown to reader and author alike (see below)
 
 Verified by driving the product end to end in a real browser against a real
 Postgres: sign up → onboard → verify → post → bid → hire → escrow → message,
@@ -229,6 +231,80 @@ Postgres inside the runner, uses it, and destroys it.
 **Socket.io cannot run on Vercel** — see the top of this file. Messaging works
 today on ordinary request/response; live delivery needs that decision.
 
+## Authorship: how a piece of writing got here
+
+`src/lib/authorship/` records whether a bio, a job description or a cover
+letter was **typed into the form or pasted in from somewhere else**, and shows
+that next to the text. Read `src/lib/authorship/index.ts` before changing any
+of it; the summary is below.
+
+### What it does not do
+
+It does not tell you whether AI wrote something. Nothing can. OpenAI withdrew
+its own classifier in 2023 over exactly this, and a percentage next to
+somebody's writing is a number, not a measurement.
+
+The stylometric model is built, tested and **switched off**, and the reason is
+in the repository rather than in an argument. `npm run authorship:eval` scores
+hand-labelled samples:
+
+```
+                 flagged   not flagged
+  assisted            5             0
+  human               4             5
+
+  Second-language writers, human-written: 4 samples, 4 flagged (100%)
+```
+
+Every human sample written in second-language English was flagged — scoring
+95–97, above a genuinely machine-written sample at 85. Feature by feature,
+nothing separates careful second-language writing from model output:
+
+| | native | assisted | second-language |
+| --- | --- | --- | --- |
+| contractions / 1000 words | 31–98 | 0 | 0 |
+| informality / 1000 words | 0–21 | 0 | 0 |
+| burstiness | .28–.91 | .18–.44 | .08–.30 |
+
+The two features that separate anything separate *native speakers* from
+everyone else. That is the result Liang et al. reported in *Patterns* (2023):
+seven GPT detectors called over half of non-native TOEFL essays
+machine-generated and almost none of the native-written ones. Most of this
+marketplace writes English as a second language, so shipping that would mean
+quietly marking the people it exists to serve as cheats — and they would never
+find out why they stopped getting hired.
+
+So `STYLE_FLAGGING_ENABLED` is `false`, and `npm run authorship:eval` runs in
+CI as the gate: it fails the build if the flag is ever turned on while the
+model still fails the fairness check.
+
+### What it does do
+
+Provenance. The browser counts characters typed, characters pasted, the size
+of the largest paste, corrections, and how long the field was worked on — six
+integers, in a hidden input you can read. Never keystrokes, never the contents
+of your clipboard, never the text you deleted.
+
+| Band | Means |
+| --- | --- |
+| **Typed here** | Composed in the form |
+| **Pasted from elsewhere** | Arrived by paste. A statement of fact — most people draft in a notes app |
+| **Not recorded** | Written before this existed, or scripting turned off. Shown to nobody |
+
+"This arrived in one paste" is an observation about an event. "This reads like
+a model" is an inference about a style. Only the first is fair to put next to
+someone's name.
+
+Four rules hold everywhere:
+
+- **Nothing is blocked, ranked or rejected.** No band affects matching,
+  ordering, verification or eligibility to bid.
+- **The author sees exactly what the reader sees**, worded in the second
+  person. A score kept from the person it describes is a file, not context.
+- **A note is only shown beside text the viewer may already read**, so it
+  cannot leak anything about a bid whose contents are hidden.
+- **No telemetry means "not recorded"**, never suspicion.
+
 ## Proposal privacy
 
 `src/server/services/proposals.ts` is the only module that reads the Proposal
@@ -265,9 +341,16 @@ planted in the cover letter and attachment URL. It does the same again from a
 browser with no cookies at all against `/browse`, where the seeded bids are
 real rows and none of them may reach a page anyone on the internet can read.
 
-## Three dead ends found by using the product
+## Four dead ends found by using the product
 
 All invisible from the code and obvious within a minute of driving it.
+
+**An uploaded profile photo did not appear.** The letter placeholder was served
+from the same URL as the real avatar with `max-age=300,
+stale-while-revalidate=86400` — so anyone who had opened a profile before the
+photo existed kept being shown the initial for five minutes, and could keep
+being shown it for a day. The upload had worked the whole time. Both responses
+now carry an ETag and `no-cache`, which costs one 304 and is always right.
 
 **The talent directory scrolled sideways on a phone.** Every card was about
 395px wide on a 390px screen, because a grid item's default minimum size is its
