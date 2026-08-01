@@ -17,6 +17,37 @@ export const dynamic = 'force-dynamic';
  * It reveals no connection strings, host names or credentials — only booleans,
  * a row count, and the same operator-facing sentence the sign-in form shows.
  */
+/**
+ * Columns this build reads that an older database will not have.
+ *
+ * Checked against information_schema rather than by probing each table,
+ * because a probe that throws leaves the connection in a failed state inside
+ * a transaction and costs a round trip per table.
+ */
+const REQUIRED: readonly (readonly [string, string])[] = [
+  ['Profile', 'category'],
+  ['Proposal', 'revisions'],
+  ['Milestone', 'funded'],
+  ['Milestone', 'fundedAt'],
+  ['Challenge', 'maxAttempts'],
+  ['Challenge', 'timeLimitMins'],
+  ['Challenge', 'scheduledAt'],
+  ['ChallengeAnswer', 'attempt'],
+  ['ChallengeAnswer', 'scorePct'],
+];
+
+async function missingColumns(): Promise<string[]> {
+  const rows = await db.$queryRaw<{ table_name: string; column_name: string }[]>`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+  `;
+  const have = new Set(rows.map((r) => `${r.table_name}.${r.column_name}`));
+  return REQUIRED
+    .map(([table, column]) => `${table}.${column}`)
+    .filter((key) => !have.has(key));
+}
+
 export async function GET() {
   const checks: Record<string, unknown> = {
     databaseUrlSet: databaseConfigured,
@@ -49,11 +80,31 @@ export async function GET() {
         : dbLatencyMs < 200 ? 'acceptable'
           : 'slow — is the database in the same region as your functions?';
 
+    // Tables existing is not the same as tables being *current*. A database
+    // created from an older init.sql answers every query about the old columns
+    // and throws on the new ones, which surfaced as "Something broke" on
+    // whichever page happened to read one. Naming the missing columns turns
+    // that into a two-minute fix.
+    const missing = await missingColumns();
+    if (missing.length > 0) {
+      return NextResponse.json({
+        ok: false,
+        checks: {
+          ...checks, databaseReachable: true, tablesPresent: true,
+          schemaCurrent: false, missingColumns: missing, dbLatencyMs,
+        },
+        problem: `The database is missing ${missing.length} column(s) this `
+          + 'version needs, so pages that read them fail.',
+        fix: 'Run prisma/upgrade.sql in your database\'s SQL editor '
+          + '(or `npx prisma db push`), then reload.',
+      }, { status: 503 });
+    }
+
     return NextResponse.json({
       ok: checks.authSecretSet === true,
       checks: {
-        ...checks, databaseReachable: true, tablesPresent: true, users,
-        dbLatencyMs, latency,
+        ...checks, databaseReachable: true, tablesPresent: true,
+        schemaCurrent: true, users, dbLatencyMs, latency,
       },
       ...(checks.authSecretSet
         ? {}

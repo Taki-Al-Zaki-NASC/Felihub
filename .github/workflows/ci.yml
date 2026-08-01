@@ -78,6 +78,39 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx prisma db push --skip-generate
+
+      # prisma/init.sql is what people paste into a hosting provider's SQL
+      # editor when they have no local Node setup. If it drifts from
+      # schema.prisma, they get a database that is missing columns the code
+      # reads — which shows up as "Something broke" on whichever page happens
+      # to read one first. That already happened once.
+      - name: prisma/init.sql must match the schema
+        run: |
+          npx prisma migrate diff --from-empty \
+            --to-schema-datamodel prisma/schema.prisma --script > /tmp/expected.sql
+          # Compare statements only; init.sql carries an explanatory header.
+          norm() { grep -vE '^\s*(--|$)' "$1" | tr -s ' '; }
+          if ! diff <(norm /tmp/expected.sql) <(norm prisma/init.sql) > /tmp/sql.diff; then
+            echo "::error::prisma/init.sql is out of date. Regenerate it:"
+            echo "  npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script"
+            cat /tmp/sql.diff
+            exit 1
+          fi
+
+      # An existing deployment upgrades with upgrade.sql rather than init.sql.
+      # Applying it on top of a database built from init.sql must leave the two
+      # indistinguishable, or an upgraded site differs from a fresh one in ways
+      # nobody will notice until a query fails.
+      - name: prisma/upgrade.sql must be idempotent and reach the same schema
+        env:
+          PGPASSWORD: felicek
+        run: |
+          psql -h localhost -U felicek -d felicek -q -v ON_ERROR_STOP=1 \
+            -f prisma/upgrade.sql
+          psql -h localhost -U felicek -d felicek -q -v ON_ERROR_STOP=1 \
+            -f prisma/upgrade.sql
+          echo "upgrade.sql applied twice with no error"
+
       - run: npm run build
       - name: Start the production server
         run: |

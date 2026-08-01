@@ -93,6 +93,18 @@ Two things the app itself does to stay quick, worth not undoing:
   the browser holds the *previous* page for the whole of it and the click
   appears to have done nothing.
 
+### Upgrading an existing database
+
+`prisma/init.sql` builds a database from nothing. When the schema changes, an
+*existing* database needs **`prisma/upgrade.sql`** instead — paste it into the
+same SQL editor. It is idempotent, so running it twice, or on a database that
+is already current, does nothing and errors on nothing.
+
+Skipping it looks like "Something broke" on whichever page reads a column the
+database does not have yet. `/api/health` names the missing columns.
+
+`npx prisma db push` does the same thing if you have the repo locally.
+
 ### Is this deployment actually working?
 
 **`/api/health`** answers it in one request — no log-diving:
@@ -121,17 +133,18 @@ The public site and the full signed-in product are built and working:
   URL, so no object storage to provision), then verification
 - **Verification** — real ICAO 9303 check-digit and Bangladesh NID validation,
   free during the beta but still gated on both document *and* deposit
-- **Hirers** — dashboard, talent directory, post a job, read bids, hire (which
-  funds escrow in the same transaction), contracts, wallet with a top-up
-- **Freelancers** — dashboard, job board with search, bid (free, no credits),
-  contracts, wallet
+- **Hirers** — dashboard, talent directory, post a job with mandatory
+  milestones, read public bids, hire (which funds the first milestone into
+  escrow), fund and release each milestone, contracts, wallet with a top-up
+- **Freelancers** — dashboard, job board filtered to 95% matches on category
+  and skills, bid free with two revisions, skill challenges, contracts, wallet
 - **Both** — messages with threads, notifications, public profiles, settings
 
 Verified by driving the product end to end in a real browser against a real
 Postgres: sign up → onboard → verify → post → bid → hire → escrow → message,
 as both roles. That walk is what found the two dead ends fixed below.
 
-Not built yet: WebRTC calls, skill challenges, milestone release, reviews,
+Not built yet: WebRTC calls (blocked on the transport decision above), reviews,
 deliverable watermarking, and the payment gateway. The schema carries all of
 them.
 
