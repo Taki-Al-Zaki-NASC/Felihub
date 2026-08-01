@@ -47,6 +47,13 @@ const body = (page) => page.locator('body').innerText();
  */
 async function open(page, path) {
   await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+  await settle(page);
+}
+
+/** Waits for any streamed skeleton to be replaced by real content. Needed
+ *  after a Server Action too: revalidatePath re-renders the page, and the
+ *  skeleton comes back while it does. */
+async function settle(page) {
   await page.locator('[data-loading]').waitFor({ state: 'detached', timeout: 20000 })
     .catch(() => {});
 }
@@ -114,6 +121,8 @@ async function onboard(page, who, isFreelancer) {
     'A profile written during an end-to-end walk of the product, long enough '
     + `to satisfy the minimum length the form asks for. ${UNBREAKABLE}`);
   await page.getByLabel('Location').fill('Dhaka, Bangladesh');
+  await page.getByLabel(isFreelancer ? 'Category you work in' : 'Category you hire in')
+    .selectOption('Development & IT');
   await page.getByLabel(isFreelancer ? 'Skills' : 'What you hire for')
     .fill('Flutter, TypeScript');
   if (isFreelancer) await page.getByLabel('Hourly rate').fill('$45');
@@ -164,6 +173,7 @@ watch(c, 'client');
 await signUp(c, CLIENT, 'CLIENT');    ok('signed up');
 await onboard(c, CLIENT, false);      ok('profile saved');
 await verify(c, '1985123456789');     ok('verified');
+await settle(c);
 
 let text = await body(c);
 if (/Find work/i.test(text) && !/Post a job/i.test(text)) {
@@ -191,12 +201,25 @@ await c.getByLabel('Description').fill(
   + 'Done means it runs on Android and iOS with the tests green.');
 await c.getByLabel('Skills').fill('Flutter, TypeScript');
 await c.getByLabel('Budget').fill('$1,200');
+
+// Milestones are mandatory and must add up to the budget.
+await c.getByLabel('Milestone 1 deliverable').fill('Designs signed off');
+await c.getByLabel('Milestone 1 amount').fill('$400');
+await c.getByRole('button', { name: /add milestone/i }).click();
+await c.getByLabel('Milestone 2 deliverable').fill('Screens built and tested');
+await c.getByLabel('Milestone 2 amount').fill('$800');
 await c.getByRole('button', { name: /^post job$/i }).click();
 await c.waitForURL((u) => /\/jobs\/[^/]+$/.test(u.pathname) && !u.pathname.endsWith('/new'),
   { timeout: 30000 })
   .catch(async () => note('post job', `did not navigate — at ${c.url()} — ${(await body(c)).slice(0, 250)}`));
 const jobUrl = c.url();
 ok(`job posted: ${jobUrl.replace(BASE, '')}`);
+
+await open(c, jobUrl.replace(BASE, ''));
+text = await body(c);
+if (!/Designs signed off/.test(text) || !/Screens built and tested/.test(text)) {
+  note('milestones', `not shown on the job — ${text.slice(0, 250)}`);
+} else ok('milestones listed on the job');
 
 /* ── Freelancer ───────────────────────────────────────────────────────── */
 console.log('\n=== FREELANCER ===');
@@ -215,8 +238,16 @@ if (!/Find work/i.test(await body(f))) note('freelancer /talent', 'was not redir
 else ok('freelancer /talent redirects to /jobs');
 
 await open(f, `/jobs`);
-if (!/onboarding flow/i.test(await body(f))) note('find work', 'the posted job is not listed');
-else ok('posted job appears on the board');
+text = await body(f);
+if (!/onboarding flow/i.test(text)) {
+  note('find work', `the posted job is not listed — ${text.slice(0, 220)}`);
+} else {
+  ok('posted job appears on the board');
+  const pct = text.match(/(\d+)% match/);
+  if (!pct) note('match', 'no match score shown on the job card');
+  else if (Number(pct[1]) < 95) note('match', `a perfect skills match scored only ${pct[1]}%`);
+  else ok(`match score ${pct[1]}% clears the 95% floor`);
+}
 
 await open(f, jobUrl.replace(BASE, ''));
 const bid = f.getByLabel('Your price');
@@ -243,8 +274,13 @@ if (!(await topUp.count())) note('top up', 'no way to add to the posting balance
 else {
   await topUp.click();
   await c.waitForTimeout(2500);
-  if (!/Added to your posting balance/i.test(await body(c))) note('top up', 'no confirmation');
-  else ok('posting balance topped up');
+  await open(c, '/wallet');
+  // Assert the balance itself, not the toast: the Server Action revalidates
+  // the page, which re-renders the form and can clear its own success state.
+  // The number on screen is the fact; the message is decoration.
+  if (!/\$1,050/.test(await body(c))) {
+    note('top up', `posting balance did not increase — ${(await body(c)).slice(0, 200)}`);
+  } else ok('posting balance topped up to $1,050');
 }
 
 await open(c, jobUrl.replace(BASE, ''));
@@ -258,12 +294,15 @@ if (!/Fred Freelancer/i.test(text)) {
   else {
     await hire.first().click();
     await c.waitForTimeout(3000);
-    text = await body(c);
-    if (/you are \$[\d,.]+ short/i.test(text)) {
-      note('hire', `refused: ${text.match(/[^.]*you are \$[\d,.]+ short[^.]*\./i)?.[0]}`);
-    } else if (!/filled/i.test(text) || !/in escrow/i.test(text)) {
-      note('hire', `escrow not funded — ${text.slice(0, 250)}`);
-    } else ok('hired, escrow funded');
+    if (/you are \$[\d,.]+ short/i.test(await body(c))) {
+      note('hire', 'refused for insufficient posting balance');
+    } else {
+      await open(c, jobUrl.replace(BASE, ''));
+      text = await body(c);
+      if (!/filled/i.test(text) || !/in escrow/i.test(text)) {
+        note('hire', `escrow not funded — ${text.slice(0, 250)}`);
+      } else ok('hired, first milestone funded into escrow');
+    }
   }
 }
 
@@ -307,6 +346,36 @@ else {
   await open(c, `/profile/${handle}`);
   if (!/Fred Freelancer/i.test(await body(c))) note('profile view', 'the client cannot read it');
   else ok('client can read the freelancer profile');
+}
+
+/* ── Milestones: fund and release, which is where money actually moves ── */
+console.log('\n=== MILESTONES ===');
+await open(c, jobUrl.replace(BASE, ''));
+const release = c.getByRole('button', { name: /^release .* to the freelancer$/i });
+if (!(await release.count())) {
+  note('milestones', `no release button for the funded milestone — ${(await body(c)).slice(0, 250)}`);
+} else {
+  await release.first().click();
+  await c.waitForTimeout(3000);
+  await settle(c);
+  if (!/released/i.test(await body(c))) note('milestones', 'the milestone did not release');
+  else ok('first milestone released');
+
+  await open(f, '/wallet');
+  const wallet = await body(f);
+  if (!/felicek fee/i.test(wallet)) note('fees', 'the 1% fee is not its own ledger row');
+  else ok('release paid out with the fee itemised separately');
+}
+
+await open(c, jobUrl.replace(BASE, ''));
+const fundNext = c.getByRole('button', { name: /^fund .* into escrow$/i });
+if (!(await fundNext.count())) note('milestones', 'cannot fund the second milestone');
+else {
+  await fundNext.first().click();
+  await c.waitForTimeout(3000);
+  await settle(c);
+  if (!/in escrow/i.test(await body(c))) note('milestones', 'second milestone did not fund');
+  else ok('second milestone funded');
 }
 
 /* ── Sessions ─────────────────────────────────────────────────────────── */

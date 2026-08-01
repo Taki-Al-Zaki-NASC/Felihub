@@ -9,16 +9,32 @@ import { submitProposalAction } from '@/server/actions/jobs';
 import type { FormResult } from '@/server/actions/profile';
 
 export function ProposalForm({
-  jobId, existingBid, existingNote,
+  jobId, existingBid, existingNote, revisionsUsed = 0, maxRevisions = 2,
 }: {
   jobId: string;
   existingBid?: string;
   existingNote?: string;
+  revisionsUsed?: number;
+  maxRevisions?: number;
 }) {
   const [state, action] = useActionState<FormResult | null, FormData>(
     submitProposalAction, null,
   );
   const editing = Boolean(existingBid);
+  const left = maxRevisions - revisionsUsed;
+  const locked = editing && left <= 0;
+
+  if (locked) {
+    return (
+      <div className="rounded-md border border-border bg-neutral-tint p-4 text-sm">
+        <p className="font-semibold">Your bid is final.</p>
+        <p className="mt-1 text-ink-muted">
+          You have used all {maxRevisions} revisions. Message the client if
+          something material has changed.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form action={action} className="space-y-4" noValidate>
@@ -43,6 +59,12 @@ export function ProposalForm({
         placeholder="How you would tackle it, what you have built like it, and how long you need."
         hint="The client reads this before your price."
         error={state?.fieldErrors?.note} />
+
+      {editing && (
+        <p className="text-xs text-ink-muted">
+          {left} {left === 1 ? 'revision' : 'revisions'} left.
+        </p>
+      )}
 
       <Submit editing={editing} />
     </form>

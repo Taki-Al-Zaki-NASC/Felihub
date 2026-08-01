@@ -29,7 +29,7 @@ export default async function Settings() {
     db.profile.findUnique({
       where: { userId: user.id },
       select: {
-        headline: true, bio: true, location: true, skills: true,
+        headline: true, bio: true, location: true, skills: true, category: true,
         hourlyRateCents: true, portfolioUrl: true, experience: true,
       },
     }),
@@ -98,6 +98,7 @@ export default async function Settings() {
               headline: profile?.headline ?? '',
               bio: profile?.bio ?? '',
               location: profile?.location ?? '',
+              category: profile?.category ?? '',
               skills: profile?.skills ?? [],
               hourlyRate: profile?.hourlyRateCents ? money(profile.hourlyRateCents) : '',
               portfolioUrl: profile?.portfolioUrl ?? '',

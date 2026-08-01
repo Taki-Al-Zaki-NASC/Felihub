@@ -6,6 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
 import { TagInput } from '@/components/ui/tag-input';
+import { CATEGORIES } from '@/lib/categories';
 import { saveProfileAction, type FormResult } from '@/server/actions/profile';
 
 /** A nudge, not a taxonomy — the field accepts anything typed. It exists so
@@ -21,6 +22,7 @@ export interface ProfileDefaults {
   headline: string;
   bio: string;
   location: string;
+  category: string;
   skills: string[];
   hourlyRate: string;
   portfolioUrl: string;
@@ -75,6 +77,25 @@ export function ProfileForm({
 
       <Field label="Location" name="location" defaultValue={defaults.location}
         placeholder="Dhaka, Bangladesh" error={fieldError('location')} />
+
+      <div>
+        <label htmlFor="category" className="block text-sm font-semibold">
+          {isFreelancer ? 'Category you work in' : 'Category you hire in'}
+        </label>
+        <select id="category" name="category" defaultValue={defaults.category}
+          className="mt-1.5 min-h-[44px] w-full rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
+          <option value="" disabled>Choose one</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <p className="mt-1.5 text-xs text-ink-muted">
+          {isFreelancer
+            ? 'The same list jobs are posted under. Your board shows work in this category first.'
+            : 'Helps the right freelancers find your postings.'}
+        </p>
+        {fieldError('category') && (
+          <p className="mt-1.5 text-sm text-danger">{fieldError('category')}</p>
+        )}
+      </div>
 
       <TagInput
         label={isFreelancer ? 'Skills' : 'What you hire for'}

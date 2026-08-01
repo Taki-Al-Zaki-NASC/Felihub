@@ -9,6 +9,9 @@ import { canBid, canPostJob } from '@/server/services/verification';
 import { parseMoney } from '@/lib/money';
 import { CATEGORIES } from '@/lib/categories';
 import { parseTags, tagsSchema } from '@/lib/tags';
+import { milestonesSchema, parseMilestones, sumCents } from '@/lib/milestones';
+import { MAX_BID_REVISIONS } from '@/lib/bids';
+import { money } from '@/lib/money';
 import type { FormResult } from '@/server/actions/profile';
 
 const jobSchema = z.object({
@@ -19,6 +22,7 @@ const jobSchema = z.object({
   category: z.enum(CATEGORIES, { message: 'Pick a category.' }),
   skills: tagsSchema.min(1, 'List at least one skill.'),
   budgetCents: z.number().int().positive('Enter a budget.'),
+  milestones: milestonesSchema,
 });
 
 function flatten(error: z.ZodError): FormResult {
@@ -64,17 +68,42 @@ export async function createJobAction(
     category: form.get('category'),
     skills: parseTags(form.get('skills')),
     budgetCents: parseMoney(String(form.get('budget') ?? '')) ?? 0,
+    milestones: parseMilestones(form.get('milestones')),
   });
   if (!parsed.success) return flatten(parsed.error);
 
-  const job = await db.job.create({
-    data: { ...parsed.data, ownerId: user.id },
+  const { milestones, ...job } = parsed.data;
+
+  // The parts have to add up to the whole. Letting them disagree means the
+  // budget is decoration and nobody can tell what was actually agreed.
+  const total = sumCents(milestones);
+  if (total !== job.budgetCents) {
+    const off = total > job.budgetCents ? total - job.budgetCents : job.budgetCents - total;
+    return {
+      fieldErrors: {
+        milestones: total > job.budgetCents
+          ? `Milestones add up to ${money(off)} more than the budget.`
+          : `Milestones are ${money(off)} short of the budget.`,
+      },
+    };
+  }
+
+  const created = await db.job.create({
+    data: {
+      ...job,
+      ownerId: user.id,
+      milestones: {
+        createMany: {
+          data: milestones.map((m, position) => ({ ...m, position })),
+        },
+      },
+    },
     select: { id: true },
   });
 
   revalidatePath('/jobs');
   revalidatePath('/dashboard');
-  redirect(`/jobs/${job.id}`);
+  redirect(`/jobs/${created.id}`);
 }
 
 const bidSchema = z.object({
@@ -121,14 +150,28 @@ export async function submitProposalAction(
   // existing proposal rather than stacking a second one.
   const existing = await db.proposal.findUnique({
     where: { jobId_freelancerId: { jobId, freelancerId: user.id } },
-    select: { id: true },
+    select: { id: true, revisions: true },
   });
+
+  // Two revisions, then the bid is final. Bids are public here, so unlimited
+  // edits turn a proposal into a live auction against whoever bid last — which
+  // is a race to the bottom, not a market.
+  if (existing && existing.revisions >= MAX_BID_REVISIONS) {
+    return {
+      error: `You have already revised this bid ${MAX_BID_REVISIONS} times, `
+        + 'which is the limit. Message the client if something has changed.',
+    };
+  }
 
   await db.$transaction(async (tx) => {
     await tx.proposal.upsert({
       where: { jobId_freelancerId: { jobId, freelancerId: user.id } },
       create: { jobId, freelancerId: user.id, ...parsed.data },
-      update: { ...parsed.data, status: 'SUBMITTED' },
+      update: {
+        ...parsed.data,
+        status: 'SUBMITTED',
+        revisions: { increment: 1 },
+      },
     });
     if (!existing) {
       await tx.job.update({
@@ -171,7 +214,15 @@ export async function hireAction(
     select: {
       id: true, bidCents: true, freelancerId: true, status: true,
       freelancer: { select: { displayName: true } },
-      job: { select: { id: true, ownerId: true, title: true, status: true } },
+      job: {
+        select: {
+          id: true, ownerId: true, title: true, status: true, budgetCents: true,
+          milestones: {
+            orderBy: { position: 'asc' },
+            select: { id: true, amountCents: true, label: true, position: true },
+          },
+        },
+      },
     },
   });
   if (!proposal) return { error: 'That bid no longer exists.' };
@@ -182,26 +233,48 @@ export async function hireAction(
     return { error: 'Someone is already hired on this job.' };
   }
 
+  const milestones = proposal.job.milestones;
+  if (milestones.length === 0) {
+    return { error: 'This job has no milestones, so there is nothing to fund.' };
+  }
+
+  // The agreed price is the bid, not the advertised budget. Rescale the
+  // milestones proportionally so they still describe the same split of the
+  // same work — with the rounding remainder on the last one, so the parts add
+  // back up to the agreed total exactly.
+  const scaled = rescale(milestones, proposal.bidCents);
+  const first = scaled[0];
+
   const account = await gateFor(user.id);
-  if (account.postingBalanceCents < proposal.bidCents) {
-    const short = (proposal.bidCents - account.postingBalanceCents) / 100;
+  if (account.postingBalanceCents < first.amountCents) {
+    const short = (first.amountCents - account.postingBalanceCents) / 100;
     return {
-      error: `Escrow is funded from your posting balance, and you are $${short.toFixed(2)} short. `
-        + 'Top up on the Wallet page and hire again.',
+      error: `Hiring funds the first milestone, ${money(first.amountCents)}, from your `
+        + `posting balance — you are $${short.toFixed(2)} short. Top up on the Wallet page.`,
     };
   }
 
   await db.$transaction(async (tx) => {
+    for (const m of scaled) {
+      await tx.milestone.update({
+        where: { id: m.id },
+        data: { amountCents: m.amountCents },
+      });
+    }
+    await tx.milestone.update({
+      where: { id: first.id },
+      data: { funded: true, fundedAt: new Date() },
+    });
     await tx.user.update({
       where: { id: user.id },
-      data: { postingBalanceCents: { decrement: proposal.bidCents } },
+      data: { postingBalanceCents: { decrement: first.amountCents } },
     });
     await tx.job.update({
       where: { id: proposal.job.id },
       data: {
         status: 'FILLED',
         hiredProposalId: proposal.id,
-        escrowHeldCents: { increment: proposal.bidCents },
+        escrowHeldCents: { increment: first.amountCents },
       },
     });
     await tx.proposal.update({
@@ -216,8 +289,8 @@ export async function hireAction(
       data: {
         userId: user.id,
         kind: 'ESCROW_HOLD',
-        amountCents: -proposal.bidCents,
-        label: `Escrow funded — ${proposal.job.title}`,
+        amountCents: -first.amountCents,
+        label: `Escrow funded — ${first.label}`,
         jobId: proposal.job.id,
       },
     });
@@ -226,7 +299,8 @@ export async function hireAction(
         userId: proposal.freelancerId,
         kind: 'HIRED',
         title: 'You were hired',
-        body: `Your bid on “${proposal.job.title}” was accepted and escrow is funded.`,
+        body: `Your bid on “${proposal.job.title}” was accepted. `
+          + `${money(first.amountCents)} is in escrow for “${first.label}” — you can start.`,
         href: `/jobs/${proposal.job.id}`,
       },
     });
@@ -248,4 +322,32 @@ export async function hireAction(
   revalidatePath(`/jobs/${proposal.job.id}`);
   revalidatePath('/dashboard');
   return { ok: true };
+}
+
+
+/**
+ * Rescales milestone amounts to a new total, preserving their proportions.
+ *
+ * Integer cents throughout, with the remainder landing on the last milestone
+ * so the parts always sum to the whole. Distributing rounding "fairly" would
+ * be worse: it is more code, and it can still leave the total a cent off.
+ */
+function rescale<T extends { id: string; amountCents: number; label: string }>(
+  milestones: readonly T[],
+  totalCents: number,
+): { id: string; amountCents: number; label: string }[] {
+  const current = milestones.reduce((t, m) => t + m.amountCents, 0);
+  if (current === totalCents || current === 0) {
+    return milestones.map((m) => ({ id: m.id, amountCents: m.amountCents, label: m.label }));
+  }
+
+  let assigned = 0;
+  return milestones.map((m, i) => {
+    const last = i === milestones.length - 1;
+    const amountCents = last
+      ? totalCents - assigned
+      : Math.round((m.amountCents / current) * totalCents);
+    assigned += amountCents;
+    return { id: m.id, amountCents, label: m.label };
+  });
 }

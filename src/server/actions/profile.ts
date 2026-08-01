@@ -8,6 +8,7 @@ import { requireUser } from '@/server/auth';
 import { parseMoney } from '@/lib/money';
 import { experienceSchema } from '@/lib/experience';
 import { parseTags, tagsSchema } from '@/lib/tags';
+import { CATEGORIES } from '@/lib/categories';
 
 export interface FormResult {
   error?: string;
@@ -20,6 +21,7 @@ const profileSchema = z.object({
   headline: z.string().trim().min(4, 'One line on what you do.').max(120),
   bio: z.string().trim().min(40, 'Write at least a couple of sentences — this is what a client reads first.').max(4000),
   location: z.string().trim().min(2, 'Where are you based?').max(120),
+  category: z.enum(CATEGORIES, { message: 'Pick the category you work in.' }),
   skills: tagsSchema,
   hourlyRateCents: z.number().int().positive().nullable(),
   portfolioUrl: z.string().trim().url('That is not a full URL.').max(300)
@@ -56,6 +58,7 @@ export async function saveProfileAction(
     headline: form.get('headline'),
     bio: form.get('bio'),
     location: form.get('location'),
+    category: form.get('category'),
     skills: parseTags(form.get('skills')),
     hourlyRateCents: isFreelancer && rate ? parseMoney(rate) : null,
     portfolioUrl: form.get('portfolioUrl') ?? '',
@@ -97,6 +100,7 @@ export async function saveProfileAction(
         headline: d.headline,
         bio: d.bio,
         location: d.location,
+        category: d.category,
         skills: d.skills,
         hourlyRateCents: d.hourlyRateCents,
         portfolioUrl: d.portfolioUrl,
@@ -105,6 +109,7 @@ export async function saveProfileAction(
         headline: d.headline,
         bio: d.bio,
         location: d.location,
+        category: d.category,
         skills: d.skills,
         hourlyRateCents: d.hourlyRateCents,
         portfolioUrl: d.portfolioUrl,

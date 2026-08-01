@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
 import { TagInput } from '@/components/ui/tag-input';
+import { MilestoneEditor } from '@/components/jobs/milestone-editor';
 import { CATEGORIES } from '@/lib/categories';
 import { createJobAction } from '@/server/actions/jobs';
 import type { FormResult } from '@/server/actions/profile';
@@ -20,6 +21,7 @@ export function JobForm() {
   const [state, action] = useActionState<FormResult | null, FormData>(
     createJobAction, null,
   );
+  const [budget, setBudget] = useState('');
   const fieldError = (k: string) => state?.fieldErrors?.[k];
 
   return (
@@ -57,9 +59,12 @@ export function JobForm() {
         error={fieldError('skills')} />
 
       <Field label="Budget" name="budget" inputMode="decimal"
-        placeholder="$1,200"
-        hint="Escrow is funded from your posting balance when you hire."
+        placeholder="$1,200" value={budget}
+        onChange={(e) => setBudget(e.target.value)}
+        hint="The total. You fund it one milestone at a time, not all at once."
         error={fieldError('budget')} />
+
+      <MilestoneEditor budget={budget} error={fieldError('milestones')} />
 
       <Submit />
     </form>

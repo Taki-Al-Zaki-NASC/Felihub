@@ -120,6 +120,9 @@ model Profile {
   headline     String?
   bio          String?  @db.Text
   location     String?
+  // The same taxonomy jobs are posted under, so "does this job suit this
+  // freelancer" is a comparison rather than a guess.
+  category     String?
   hourlyRateCents Int?
   skills       String[]
   languages    String[]
@@ -135,6 +138,7 @@ model Profile {
   updatedAt    DateTime @updatedAt
 
   @@index([verified])
+  @@index([category])
 }
 
 model Job {
@@ -173,6 +177,14 @@ model Milestone {
   job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   label       String
   amountCents Int
+
+  // Funded and released are two separate facts. Money moves into escrow when
+  // the client funds a milestone and out of it when they release — a single
+  // "paid" flag would make it impossible to tell "the money is committed" from
+  // "the money has been handed over", which is the distinction escrow exists
+  // for.
+  funded      Boolean  @default(false)
+  fundedAt    DateTime?
   released    Boolean  @default(false)
   releasedAt  DateTime?
   position    Int
@@ -196,10 +208,15 @@ model Proposal {
   answerPreview  String?
   score          Int?
 
+  // How many times this bid has been edited after first submission. Two is
+  // the limit: revising once is a correction, revising ten times is bidding
+  // against yourself while everyone watches.
+  revisions      Int            @default(0)
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  answer         ChallengeAnswer?
+  answers        ChallengeAnswer[]
 
   // One bid per person per job. Re-submitting edits rather than stacking.
   @@unique([jobId, freelancerId])
@@ -211,9 +228,21 @@ model Challenge {
   id        String  @id @default(cuid())
   jobId     String  @unique
   job       Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  mode      String  // "QUIZ" | "WRITTEN"
+
+  // "QUIZ" — multiple choice, graded automatically.
+  // "WRITTEN" — a prompt, read by the owner.
+  // "LIVE" — a scheduled interview, held over the call in the thread.
+  mode      String
   prompt    String? @db.Text
   questions Json?   // [{ prompt, options }] — options public, key is not
+
+  // Two attempts. One is unforgiving of a misread question; unlimited makes
+  // the score meaningless because it converges on the answer key.
+  maxAttempts Int   @default(2)
+  timeLimitMins Int?
+
+  // LIVE only: when the interview is held.
+  scheduledAt DateTime?
 
   // The answer key. Selected only by the job owner's own queries; never
   // included in any payload sent to an applicant.
@@ -226,14 +255,22 @@ model ChallengeAnswer {
   id          String    @id @default(cuid())
   challengeId String
   challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  proposalId  String    @unique
+  proposalId  String
   proposal    Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  // 1 or 2. Kept as separate rows rather than overwriting, so a second attempt
+  // cannot quietly erase the evidence of the first.
+  attempt     Int       @default(1)
+  scorePct    Int?
 
   // The freelancer's full work. Readable by its author, and by nobody else —
   // enforced in server/services, which is the only place this table is read.
   fullAnswer  String?   @db.Text
   picks       Int[]
   submittedAt DateTime  @default(now())
+
+  @@unique([proposalId, attempt])
+  @@index([challengeId])
 }
 
 model PaymentIntent {

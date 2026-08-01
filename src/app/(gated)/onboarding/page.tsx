@@ -19,7 +19,7 @@ export default async function Onboarding() {
     db.profile.findUnique({
       where: { userId: user.id },
       select: {
-        headline: true, bio: true, location: true, skills: true,
+        headline: true, bio: true, location: true, skills: true, category: true,
         hourlyRateCents: true, portfolioUrl: true,
       },
     }),
@@ -64,7 +64,8 @@ export default async function Onboarding() {
             headline: profile?.headline ?? '',
             bio: profile?.bio ?? '',
             location: profile?.location ?? '',
-            skills: profile?.skills ?? [],
+            category: profile?.category ?? '',
+              skills: profile?.skills ?? [],
             hourlyRate: profile?.hourlyRateCents
               ? money(profile.hourlyRateCents)
               : '',

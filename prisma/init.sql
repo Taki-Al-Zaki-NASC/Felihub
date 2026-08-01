@@ -67,6 +67,7 @@ CREATE TABLE "Profile" (
     "headline" TEXT,
     "bio" TEXT,
     "location" TEXT,
+    "category" TEXT,
     "hourlyRateCents" INTEGER,
     "skills" TEXT[],
     "languages" TEXT[],
@@ -106,6 +107,8 @@ CREATE TABLE "Milestone" (
     "jobId" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "amountCents" INTEGER NOT NULL,
+    "funded" BOOLEAN NOT NULL DEFAULT false,
+    "fundedAt" TIMESTAMP(3),
     "released" BOOLEAN NOT NULL DEFAULT false,
     "releasedAt" TIMESTAMP(3),
     "position" INTEGER NOT NULL,
@@ -123,6 +126,7 @@ CREATE TABLE "Proposal" (
     "status" "ProposalStatus" NOT NULL DEFAULT 'SUBMITTED',
     "answerPreview" TEXT,
     "score" INTEGER,
+    "revisions" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -136,6 +140,9 @@ CREATE TABLE "Challenge" (
     "mode" TEXT NOT NULL,
     "prompt" TEXT,
     "questions" JSONB,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 2,
+    "timeLimitMins" INTEGER,
+    "scheduledAt" TIMESTAMP(3),
     "answerKey" JSONB,
 
     CONSTRAINT "Challenge_pkey" PRIMARY KEY ("id")
@@ -146,6 +153,8 @@ CREATE TABLE "ChallengeAnswer" (
     "id" TEXT NOT NULL,
     "challengeId" TEXT NOT NULL,
     "proposalId" TEXT NOT NULL,
+    "attempt" INTEGER NOT NULL DEFAULT 1,
+    "scorePct" INTEGER,
     "fullAnswer" TEXT,
     "picks" INTEGER[],
     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -257,6 +266,9 @@ CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
 CREATE INDEX "Profile_verified_idx" ON "Profile"("verified");
 
 -- CreateIndex
+CREATE INDEX "Profile_category_idx" ON "Profile"("category");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Job_hiredProposalId_key" ON "Job"("hiredProposalId");
 
 -- CreateIndex
@@ -284,7 +296,10 @@ CREATE UNIQUE INDEX "Proposal_jobId_freelancerId_key" ON "Proposal"("jobId", "fr
 CREATE UNIQUE INDEX "Challenge_jobId_key" ON "Challenge"("jobId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ChallengeAnswer_proposalId_key" ON "ChallengeAnswer"("proposalId");
+CREATE INDEX "ChallengeAnswer_challengeId_idx" ON "ChallengeAnswer"("challengeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ChallengeAnswer_proposalId_attempt_key" ON "ChallengeAnswer"("proposalId", "attempt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PaymentIntent_gatewayRef_key" ON "PaymentIntent"("gatewayRef");
