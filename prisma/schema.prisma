@@ -120,6 +120,13 @@ model User {
   reviewsAbout   Review[]    @relation("ReviewSubject")
   raises        Raise[]      @relation("RaiseFounder")
   pledges       Pledge[]     @relation("PledgeBacker")
+  apps          AppInstall[]
+  boards        Board[]      @relation("BoardOwner")
+  assignedCards BoardCard[]  @relation("CardAssignee")
+  team          TeamMember[] @relation("TeamOwner")
+  memberOf      TeamMember[] @relation("TeamMembership")
+  devices       TrackerDevice[]
+  timeEntries   TimeEntry[]
   memberships   ThreadMember[]
   messages      Message[]
   notifications Notification[]
@@ -183,6 +190,8 @@ model Job {
   proposals     Proposal[]
   challenge     Challenge?
   threads       Thread[]
+  board         Board?
+  timeEntries   TimeEntry[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -390,6 +399,194 @@ model Review {
   // brigading.
   @@unique([jobId, authorId])
   @@index([subjectId, createdAt])
+}
+
+/**
+ * Which optional tools an account has switched on.
+ *
+ * One row per account per app, rather than a column per app on User: the list
+ * grows, and adding a tool should not be a migration on the busiest table in
+ * the schema. `settings` is per-app configuration the tool owns.
+ *
+ * A row's absence means "off". Nothing reads a missing row as a default-on,
+ * so a new app is never silently enabled for people who never asked for it.
+ */
+model AppInstall {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** "KANBAN" | "TIME_TRACKER" | "TEAM_MANAGER" — see src/lib/apps.ts */
+  app       String
+  enabled   Boolean  @default(true)
+  settings  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, app])
+  @@index([userId, enabled])
+}
+
+/* ── Kanban ──────────────────────────────────────────────────────────────
+   A board belongs to an account and optionally to one job, which is what
+   makes "organise tasks and milestones" mean the milestones already agreed
+   rather than a second, parallel list of them. */
+
+model Board {
+  id        String        @id @default(cuid())
+  ownerId   String
+  owner     User          @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  jobId     String?       @unique
+  job       Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  title     String
+
+  columns   BoardColumn[]
+  cards     BoardCard[]
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([ownerId, updatedAt])
+}
+
+model BoardColumn {
+  id       String      @id @default(cuid())
+  boardId  String
+  board    Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  title    String
+  /** Sparse, so a card can be dropped between two others without renumbering
+   *  the whole column on every move. */
+  position Int
+  cards    BoardCard[]
+
+  @@index([boardId, position])
+}
+
+model BoardCard {
+  id          String      @id @default(cuid())
+  boardId     String
+  board       Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  columnId    String
+  column      BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  title       String
+  body        String?     @db.Text
+  position    Int
+  /** Set when the card stands for a milestone that already exists on the job,
+   *  so moving it to "done" is about the same thing the money is about. */
+  milestoneId String?
+  assigneeId  String?
+  assignee    User?       @relation("CardAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  dueAt       DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([boardId])
+  @@index([columnId, position])
+}
+
+/* ── Team manager ───────────────────────────────────────────────────────── */
+
+enum TeamRole {
+  VIEWER  // read work logs and boards
+  MANAGER // the above, plus approve time and release milestones
+  ADMIN   // the above, plus invite and remove people
+}
+
+enum TeamStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+}
+
+/**
+ * Somebody the account owner has brought in to help run their side.
+ *
+ * `memberId` is null until the invitation is accepted, because the person may
+ * not have an account yet — the invitation is addressed to an email, and the
+ * link is what binds it to whoever signs in with it.
+ */
+model TeamMember {
+  id         String     @id @default(cuid())
+  ownerId    String
+  owner      User       @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberId   String?
+  member     User?      @relation("TeamMembership", fields: [memberId], references: [id], onDelete: SetNull)
+
+  email      String
+  role       TeamRole   @default(VIEWER)
+  status     TeamStatus @default(INVITED)
+  /** Hashed, never stored raw — it is a bearer credential for an invitation. */
+  tokenHash  String?    @unique
+  expiresAt  DateTime?
+
+  invitedAt  DateTime   @default(now())
+  acceptedAt DateTime?
+
+  @@unique([ownerId, email])
+  @@index([memberId])
+}
+
+/* ── Desktop time tracker ────────────────────────────────────────────────
+   The desktop client authenticates as a *device*, not as the account: a
+   long-lived credential sitting on a laptop should be revocable on its own
+   and should never be the password. */
+
+model TrackerDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  platform   String    // "windows" | "macos" | "linux"
+  /** SHA-256 of the device token. The raw token is shown once, at pairing. */
+  tokenHash  String    @unique
+  pairedAt   DateTime  @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+
+  entries    TimeEntry[]
+
+  @@index([userId, revokedAt])
+}
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId  String?
+  device    TrackerDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  jobId     String?
+  job       Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  startedAt DateTime
+  endedAt   DateTime?
+  seconds   Int       @default(0)
+  note      String?
+
+  samples   ActivitySample[]
+
+  @@index([userId, startedAt])
+  @@index([jobId, startedAt])
+}
+
+/**
+ * A minute of the tracked session.
+ *
+ * `screenshotUrl` is nullable and stays null unless the freelancer being
+ * tracked turned screenshots on — see src/lib/apps.ts. Monitoring somebody's
+ * screen without their knowledge is not a feature, it is a thing done to them.
+ */
+model ActivitySample {
+  id            String    @id @default(cuid())
+  entryId       String
+  entry         TimeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  at            DateTime
+  /** 0–100: share of the sampled window with keyboard or mouse input. */
+  activityPct   Int       @default(0)
+  screenshotUrl String?
+
+  @@index([entryId, at])
 }
 
 /**

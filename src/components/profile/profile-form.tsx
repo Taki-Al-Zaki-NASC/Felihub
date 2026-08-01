@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
 import { TagInput } from '@/components/ui/tag-input';
 import { CATEGORIES, skillsFor } from '@/lib/categories';
+import { TEAM_SIZES, flowFor } from '@/lib/onboarding';
 import { saveProfileAction, type FormResult } from '@/server/actions/profile';
 
 export interface ProfileDefaults {
@@ -18,15 +19,26 @@ export interface ProfileDefaults {
   skills: string[];
   hourlyRate: string;
   portfolioUrl: string;
+  teamSize?: string;
 }
 
+/**
+ * One form, four flows.
+ *
+ * Every label, placeholder and hint comes from `src/lib/onboarding.ts` rather
+ * than from a boolean in here. The four account types are not the same kind of
+ * account, and asking a startup founder to fill in a box called "Headline" is
+ * what happens when a form has one switch called `isFreelancer`.
+ */
 export function ProfileForm({
-  defaults, isFreelancer, submitLabel,
+  defaults, role, submitLabel,
 }: {
   defaults: ProfileDefaults;
-  isFreelancer: boolean;
+  role: string;
   submitLabel: string;
 }) {
+  const flow = flowFor(role);
+  const isFreelancer = role === 'FREELANCER';
   const [state, action] = useActionState<FormResult | null, FormData>(
     saveProfileAction, null,
   );
@@ -52,30 +64,41 @@ export function ProfileForm({
         error={fieldError('displayName')} />
 
       <Field
-        label={isFreelancer ? 'Headline' : 'Company or role'}
+        label={flow.labels.headline}
         name="headline"
         defaultValue={defaults.headline}
-        placeholder={isFreelancer
-          ? 'Flutter developer building offline-first apps'
-          : 'Head of Product at a logistics startup'}
-        hint={isFreelancer
-          ? 'The line clients see under your name in search results.'
-          : 'What you do, so freelancers know who they are talking to.'}
+        placeholder={flow.labels.headlinePlaceholder}
+        hint={flow.labels.headlineHint}
         error={fieldError('headline')} />
 
-      <TextArea label="About" name="bio" defaultValue={defaults.bio} authored
-        placeholder={isFreelancer
-          ? 'What you build, the problems you are good at, and how you work.'
-          : 'What your company does and the kind of help you usually need.'}
-        hint="At least a couple of sentences. This is the first thing anyone reads."
+      <TextArea label={flow.labels.bio} name="bio" defaultValue={defaults.bio} authored
+        placeholder={flow.labels.bioPlaceholder}
+        hint={flow.labels.bioHint}
         error={fieldError('bio')} />
 
-      <Field label="Location" name="location" defaultValue={defaults.location}
+      <Field label={flow.labels.location} name="location" defaultValue={defaults.location}
         placeholder="Dhaka, Bangladesh" error={fieldError('location')} />
+
+      {flow.asksTeamSize && (
+        <div>
+          <label htmlFor="teamSize" className="block text-sm font-semibold">
+            How many of you
+          </label>
+          <select id="teamSize" name="teamSize" defaultValue={defaults.teamSize ?? ''}
+            className="mt-1.5 min-h-[44px] w-full rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
+            <option value="">Prefer not to say</option>
+            {TEAM_SIZES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <p className="mt-1.5 text-xs text-ink-muted">
+            Shown on your profile. People ask anyway, and the answer changes
+            what they bring you.
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="category" className="block text-sm font-semibold">
-          {isFreelancer ? 'Category you work in' : 'Category you hire in'}
+          {flow.labels.category}
         </label>
         <select id="category" name="category" value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -83,38 +106,38 @@ export function ProfileForm({
           <option value="" disabled>Choose one</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <p className="mt-1.5 text-xs text-ink-muted">
-          {isFreelancer
-            ? 'The same list jobs are posted under. Your board shows work in this category first.'
-            : 'Helps the right freelancers find your postings.'}
-        </p>
+        <p className="mt-1.5 text-xs text-ink-muted">{flow.labels.categoryHint}</p>
         {fieldError('category') && (
           <p className="mt-1.5 text-sm text-danger">{fieldError('category')}</p>
         )}
       </div>
 
       <TagInput
-        label={isFreelancer ? 'Skills' : 'What you hire for'}
+        label={flow.labels.skills}
         name="skills"
         defaultValue={defaults.skills}
-        placeholder="Flutter"
-        hint={isFreelancer
-          ? 'Type a skill and press Enter. These are exactly what clients search on.'
-          : 'Type a skill and press Enter, so freelancers know what you need.'}
+        placeholder={flow.labels.skillsPlaceholder}
+        hint={flow.labels.skillsHint}
         suggestions={skillsFor(category)}
         error={fieldError('skills')} />
 
-      {isFreelancer && (
-        <Field label="Hourly rate" name="hourlyRate" inputMode="decimal"
+      {flow.asksHourlyRate && (
+        <Field label={isFreelancer ? 'Hourly rate' : 'Typical day rate'}
+          name="hourlyRate" inputMode="decimal"
           defaultValue={defaults.hourlyRate} placeholder="$45"
-          hint="Your asking rate. You can still bid a fixed price per job."
+          hint={isFreelancer
+            ? 'Your asking rate. You can still bid a fixed price per job.'
+            : 'A starting point for a conversation, not a quote.'}
           error={fieldError('hourlyRate')} />
       )}
 
-      <Field label="Portfolio or website" name="portfolioUrl"
-        type="url" defaultValue={defaults.portfolioUrl}
-        placeholder="https://example.com" hint="Optional."
-        error={fieldError('portfolioUrl')} />
+      {flow.asksWebsite && (
+        <Field label={isFreelancer ? 'Portfolio or website' : 'Website'}
+          name="portfolioUrl"
+          type="url" defaultValue={defaults.portfolioUrl}
+          placeholder="https://example.com" hint="Optional."
+          error={fieldError('portfolioUrl')} />
+      )}
 
       <Submit label={submitLabel} />
     </form>

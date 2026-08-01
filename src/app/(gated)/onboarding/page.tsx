@@ -7,6 +7,7 @@ import { ProfileForm } from '@/components/profile/profile-form';
 import { AvatarEditor } from '@/components/profile/avatar-editor';
 import { Progress } from '@/components/onboarding/progress';
 import { AlreadyDone } from '@/components/ui/already-done';
+import { flowFor } from '@/lib/onboarding';
 
 export const metadata: Metadata = { title: 'Finish your profile' };
 
@@ -38,20 +39,27 @@ export default async function Onboarding() {
   ]);
 
   const isFreelancer = user.role === 'FREELANCER';
+  // Four account types, four flows. The heading, the questions and what the
+  // account gets at the end all come from one definition per role.
+  const flow = flowFor(user.role);
 
   return (
     <>
-      <Progress step={1} />
-      <h1 className="mt-6 font-serif text-2xl font-semibold">
-        Finish your profile
-      </h1>
-      <p className="mt-1.5 text-sm text-ink-muted">
-        {isFreelancer
-          ? 'This is what a client reads before deciding to message you. '
-            + 'Two more minutes here is worth more than ten more bids.'
-          : 'Freelancers check who is hiring before they spend time on a '
-            + 'proposal. A filled-in profile gets better bids.'}
-      </p>
+      <Progress step={1} steps={flow.steps} />
+      <h1 className="mt-6 font-serif text-2xl font-semibold">{flow.title}</h1>
+      <p className="mt-1.5 text-sm text-ink-muted">{flow.intro}</p>
+
+      <ul className="mt-4 space-y-1.5 rounded-lg border border-border bg-neutral-tint p-4">
+        <li className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+          What a verified {flow.noun} account can do
+        </li>
+        {flow.unlocks.map((u) => (
+          <li key={u} className="flex gap-2 text-sm text-ink-muted">
+            <span aria-hidden className="font-bold text-teal-deep">✓</span>
+            {u}
+          </li>
+        ))}
+      </ul>
 
       {/* Its own form, saved on pick: the photo is a separate write from the
           text fields, so choosing one never risks losing what was typed. */}
@@ -65,7 +73,7 @@ export default async function Onboarding() {
 
       <div className="mt-6">
         <ProfileForm
-          isFreelancer={isFreelancer}
+          role={user.role}
           submitLabel="Save and continue"
           defaults={{
             displayName: user.displayName,
@@ -73,7 +81,7 @@ export default async function Onboarding() {
             bio: profile?.bio ?? '',
             location: profile?.location ?? '',
             category: profile?.category ?? '',
-              skills: profile?.skills ?? [],
+            skills: profile?.skills ?? [],
             hourlyRate: profile?.hourlyRateCents
               ? money(profile.hourlyRateCents)
               : '',

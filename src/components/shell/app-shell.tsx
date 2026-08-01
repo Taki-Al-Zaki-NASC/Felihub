@@ -5,9 +5,10 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
-  Briefcase, FileText, Home, LayoutDashboard, Menu, MessageSquare,
-  Rocket, Search, Settings, Users, Wallet, X,
+  Briefcase, FileText, Home, KanbanSquare, LayoutDashboard, Menu,
+  MessageSquare, Rocket, Search, Settings, Timer, Users, UsersRound, Wallet, X,
 } from 'lucide-react';
+import { APPS, type AppKey } from '@/lib/apps';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
@@ -25,7 +26,14 @@ interface NavItem {
  * freelancer browses work. v1 showed both sides the same "Jobs" tab, which put
  * clients in the freelancer's feed.
  */
-function navFor(role: SessionUser['role']): NavItem[] {
+/** Icons for the optional tools, keyed the way `src/lib/apps.ts` names them. */
+const APP_ICONS: Record<AppKey, React.ComponentType<{ className?: string }>> = {
+  KANBAN: KanbanSquare,
+  TIME_TRACKER: Timer,
+  TEAM_MANAGER: UsersRound,
+};
+
+function navFor(role: SessionUser['role'], apps: AppKey[]): NavItem[] {
   const hires = role !== 'FREELANCER';
   return [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,6 +44,14 @@ function navFor(role: SessionUser['role']): NavItem[] {
     // Everyone, whatever their role: a freelancer backing a founder is as
     // much the point of this as a founder raising.
     { href: '/startups', label: 'Startups', icon: Rocket },
+    // Optional tools, in the order Settings lists them, and only the ones this
+    // account has switched on. A sidebar entry for a tool that is off is the
+    // dead link that made the whole Apps grid worth building.
+    ...apps.map((key) => ({
+      href: APPS[key].href as Route,
+      label: APPS[key].title.replace(' Boards', '').replace('Desktop ', ''),
+      icon: APP_ICONS[key],
+    })),
     { href: '/messages', label: 'Messages', icon: MessageSquare },
     { href: '/wallet', label: 'Wallet', icon: Wallet },
     { href: '/settings', label: 'Settings', icon: Settings },
@@ -44,14 +60,17 @@ function navFor(role: SessionUser['role']): NavItem[] {
 
 export function AppShell({
   user,
+  apps = [],
   children,
 }: {
   user: SessionUser;
+  /** Tools this account has switched on, resolved on the server. */
+  apps?: AppKey[];
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const nav = navFor(user.role);
+  const nav = navFor(user.role, apps);
   const hires = user.role !== 'FREELANCER';
 
   return (

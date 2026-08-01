@@ -15,6 +15,7 @@
 -- CreateSchema
 -- CreateSchema
 -- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -43,6 +44,12 @@ CREATE TYPE "RaiseStatus" AS ENUM ('DRAFT', 'OPEN', 'FUNDED', 'EXPIRED', 'CANCEL
 
 -- CreateEnum
 CREATE TYPE "PledgeStatus" AS ENUM ('HELD', 'RELEASED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "TeamRole" AS ENUM ('VIEWER', 'MANAGER', 'ADMIN');
+
+-- CreateEnum
+CREATE TYPE "TeamStatus" AS ENUM ('INVITED', 'ACTIVE', 'REMOVED');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -248,6 +255,113 @@ CREATE TABLE "Review" (
 );
 
 -- CreateTable
+CREATE TABLE "AppInstall" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "app" TEXT NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "settings" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AppInstall_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Board" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "jobId" TEXT,
+    "title" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Board_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BoardColumn" (
+    "id" TEXT NOT NULL,
+    "boardId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "position" INTEGER NOT NULL,
+
+    CONSTRAINT "BoardColumn_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BoardCard" (
+    "id" TEXT NOT NULL,
+    "boardId" TEXT NOT NULL,
+    "columnId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT,
+    "position" INTEGER NOT NULL,
+    "milestoneId" TEXT,
+    "assigneeId" TEXT,
+    "dueAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "BoardCard_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TeamMember" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "memberId" TEXT,
+    "email" TEXT NOT NULL,
+    "role" "TeamRole" NOT NULL DEFAULT 'VIEWER',
+    "status" "TeamStatus" NOT NULL DEFAULT 'INVITED',
+    "tokenHash" TEXT,
+    "expiresAt" TIMESTAMP(3),
+    "invitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "acceptedAt" TIMESTAMP(3),
+
+    CONSTRAINT "TeamMember_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TrackerDevice" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "pairedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastSeenAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+
+    CONSTRAINT "TrackerDevice_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TimeEntry" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "deviceId" TEXT,
+    "jobId" TEXT,
+    "startedAt" TIMESTAMP(3) NOT NULL,
+    "endedAt" TIMESTAMP(3),
+    "seconds" INTEGER NOT NULL DEFAULT 0,
+    "note" TEXT,
+
+    CONSTRAINT "TimeEntry_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ActivitySample" (
+    "id" TEXT NOT NULL,
+    "entryId" TEXT NOT NULL,
+    "at" TIMESTAMP(3) NOT NULL,
+    "activityPct" INTEGER NOT NULL DEFAULT 0,
+    "screenshotUrl" TEXT,
+
+    CONSTRAINT "ActivitySample_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Raise" (
     "id" TEXT NOT NULL,
     "founderId" TEXT NOT NULL,
@@ -277,6 +391,7 @@ CREATE TABLE "Pledge" (
     "raiseId" TEXT NOT NULL,
     "backerId" TEXT NOT NULL,
     "amountCents" INTEGER NOT NULL,
+    "fromPostingCents" INTEGER NOT NULL DEFAULT 0,
     "status" "PledgeStatus" NOT NULL DEFAULT 'HELD',
     "note" TEXT,
     "anonymous" BOOLEAN NOT NULL DEFAULT false,
@@ -393,6 +508,51 @@ CREATE INDEX "Review_subjectId_createdAt_idx" ON "Review"("subjectId", "createdA
 CREATE UNIQUE INDEX "Review_jobId_authorId_key" ON "Review"("jobId", "authorId");
 
 -- CreateIndex
+CREATE INDEX "AppInstall_userId_enabled_idx" ON "AppInstall"("userId", "enabled");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AppInstall_userId_app_key" ON "AppInstall"("userId", "app");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Board_jobId_key" ON "Board"("jobId");
+
+-- CreateIndex
+CREATE INDEX "Board_ownerId_updatedAt_idx" ON "Board"("ownerId", "updatedAt");
+
+-- CreateIndex
+CREATE INDEX "BoardColumn_boardId_position_idx" ON "BoardColumn"("boardId", "position");
+
+-- CreateIndex
+CREATE INDEX "BoardCard_boardId_idx" ON "BoardCard"("boardId");
+
+-- CreateIndex
+CREATE INDEX "BoardCard_columnId_position_idx" ON "BoardCard"("columnId", "position");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TeamMember_tokenHash_key" ON "TeamMember"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "TeamMember_memberId_idx" ON "TeamMember"("memberId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TeamMember_ownerId_email_key" ON "TeamMember"("ownerId", "email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TrackerDevice_tokenHash_key" ON "TrackerDevice"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "TrackerDevice_userId_revokedAt_idx" ON "TrackerDevice"("userId", "revokedAt");
+
+-- CreateIndex
+CREATE INDEX "TimeEntry_userId_startedAt_idx" ON "TimeEntry"("userId", "startedAt");
+
+-- CreateIndex
+CREATE INDEX "TimeEntry_jobId_startedAt_idx" ON "TimeEntry"("jobId", "startedAt");
+
+-- CreateIndex
+CREATE INDEX "ActivitySample_entryId_at_idx" ON "ActivitySample"("entryId", "at");
+
+-- CreateIndex
 CREATE INDEX "Raise_status_deadline_idx" ON "Raise"("status", "deadline");
 
 -- CreateIndex
@@ -469,6 +629,48 @@ ALTER TABLE "Review" ADD CONSTRAINT "Review_authorId_fkey" FOREIGN KEY ("authorI
 
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AppInstall" ADD CONSTRAINT "AppInstall_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Board" ADD CONSTRAINT "Board_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Board" ADD CONSTRAINT "Board_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BoardColumn" ADD CONSTRAINT "BoardColumn_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_columnId_fkey" FOREIGN KEY ("columnId") REFERENCES "BoardColumn"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TrackerDevice" ADD CONSTRAINT "TrackerDevice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "TrackerDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ActivitySample" ADD CONSTRAINT "ActivitySample_entryId_fkey" FOREIGN KEY ("entryId") REFERENCES "TimeEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Raise" ADD CONSTRAINT "Raise_founderId_fkey" FOREIGN KEY ("founderId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

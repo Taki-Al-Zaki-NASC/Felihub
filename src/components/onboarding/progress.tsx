@@ -1,7 +1,15 @@
-/** The two gates every account passes, shown as a two-step progress bar so
- *  neither feels like an unexpected extra. */
-export function Progress({ step }: { step: 1 | 2 }) {
-  const steps = ['Profile', 'Verification'] as const;
+/**
+ * The gates an account passes, shown up front so none of them feels like an
+ * unexpected extra.
+ *
+ * The labels come from the role's flow — a startup's first step is "Startup",
+ * a freelancer's is "Profile" — because the same three boxes with the same
+ * three words is how four different account types end up feeling like one.
+ */
+export function Progress({ step, steps = ['Profile', 'Verification'] }: {
+  step: 1 | 2;
+  steps?: readonly string[];
+}) {
   return (
     <ol className="flex items-center gap-3 text-sm">
       {steps.map((label, i) => {

@@ -11,11 +11,33 @@ import { AvatarEditor } from '@/components/profile/avatar-editor';
 import { ExperienceEditor } from '@/components/profile/experience-editor';
 import { parseExperience } from '@/lib/experience';
 import { signOutAction } from '@/server/actions/auth';
+import { appsFor } from '@/lib/apps';
+import { enabledApps } from '@/server/services/apps';
+import { AppCard } from '@/components/settings/app-card';
 
 export const metadata: Metadata = { title: 'Settings' };
 
-export default async function Settings() {
+/**
+ * Two tabs, as query parameters rather than client state.
+ *
+ * A link is shareable, survives a refresh, and the back button works — none of
+ * which is true of a tab that only exists in a `useState`. It also keeps this
+ * page a Server Component, so the apps grid is rendered from the database
+ * rather than fetched after paint.
+ */
+const TABS = [
+  { key: 'profile', label: 'Profile' },
+  { key: 'apps', label: 'Apps' },
+] as const;
+
+export default async function Settings({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await requireUser();
+  const { tab } = await searchParams;
+  const active = tab === 'apps' ? 'apps' : 'profile';
 
   const [account, profile] = await Promise.all([
     db.user.findUniqueOrThrow({
@@ -36,11 +58,13 @@ export default async function Settings() {
   ]);
 
   const isFreelancer = account.role === 'FREELANCER';
+  const offered = appsFor(account.role);
+  const on = await enabledApps(user.id);
 
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Settings"
-        description="Your account, your public profile, and what other people can see."
+        description="Your account, your public profile, and the tools you have switched on."
         action={
           <Button asChild variant="outline">
             <Link href={`/profile/${account.username}`}>
@@ -49,6 +73,48 @@ export default async function Settings() {
           </Button>
         } />
 
+      <nav aria-label="Settings sections"
+        className="mb-6 flex gap-1 border-b border-border">
+        {TABS.map((t) => (
+          <Link key={t.key} href={`/settings?tab=${t.key}`}
+            aria-current={active === t.key ? 'page' : undefined}
+            className={`-mb-px min-h-[40px] border-b-2 px-4 py-2 text-sm font-semibold transition ${
+              active === t.key
+                ? 'border-teal text-teal-deep'
+                : 'border-transparent text-ink-muted hover:text-ink'
+            }`}>
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+
+      {active === 'apps' ? (
+        <>
+          <Card className="mb-5 p-5">
+            <h2 className="font-serif text-lg font-semibold">Apps</h2>
+            <p className="mt-1.5 text-sm text-ink-muted">
+              Optional tools, all free, all off until you turn them on. Turning
+              one off hides it and keeps whatever you made with it — a board is
+              not deleted because you stopped using boards for a fortnight.
+            </p>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {offered.map((app) => (
+              <AppCard key={app.key} app={app} enabled={on.has(app.key)} />
+            ))}
+          </div>
+
+          {offered.length === 0 && (
+            <Card className="p-5">
+              <p className="text-sm text-ink-muted">
+                No tools are offered to {account.role.toLowerCase()} accounts yet.
+              </p>
+            </Card>
+          )}
+        </>
+      ) : (
+      <>
       <Card className="mb-6">
         <CardHeader title="Account" />
         <dl className="divide-y divide-border">
@@ -91,7 +157,7 @@ export default async function Settings() {
         </div>
         <div className="p-5">
           <ProfileForm
-            isFreelancer={isFreelancer}
+            role={user.role}
             submitLabel="Save changes"
             defaults={{
               displayName: user.displayName,
@@ -127,6 +193,8 @@ export default async function Settings() {
           </form>
         </div>
       </Card>
+      </>
+      )}
     </div>
   );
 }

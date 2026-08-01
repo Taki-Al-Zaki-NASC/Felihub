@@ -125,19 +125,36 @@ async function onboard(page, who, isFreelancer) {
     .catch(async () => note('avatar', `the crop editor did not open — ${(await body(page)).slice(0, 200)}`));
   await page.waitForTimeout(2500);
 
+  // Every label is role-specific now — the four account types get four
+  // different forms, from src/lib/onboarding.ts. Keeping this in step with
+  // that file is the price of the forms not all saying "Headline".
+  const L = isFreelancer
+    ? {
+      headline: 'Headline',
+      bio: 'About you',
+      location: 'Where you are',
+      category: 'Category you work in',
+      skills: 'Skills',
+    }
+    : {
+      headline: 'Company or role',
+      bio: 'About the company',
+      location: 'Where the company is',
+      category: 'Category you hire in',
+      skills: 'What you hire for',
+    };
+
   await page.getByLabel('Display name').fill(who.name);
-  await page.getByLabel(isFreelancer ? 'Headline' : 'Company or role')
+  await page.getByRole('textbox', { name: L.headline, exact: true })
     .fill(isFreelancer
       ? 'Flutter developer building offline-first apps'
       : 'Head of Product at a logistics startup');
-  await page.getByLabel('About').fill(
+  await page.getByLabel(L.bio).fill(
     'A profile written during an end-to-end walk of the product, long enough '
     + `to satisfy the minimum length the form asks for. ${UNBREAKABLE}`);
-  await page.getByLabel('Location').fill('Dhaka, Bangladesh');
-  await page.getByLabel(isFreelancer ? 'Category you work in' : 'Category you hire in')
-    .selectOption('Development & IT');
-  await page.getByLabel(isFreelancer ? 'Skills' : 'What you hire for')
-    .fill('Flutter, TypeScript');
+  await page.getByLabel(L.location).fill('Dhaka, Bangladesh');
+  await page.getByLabel(L.category).selectOption('Development & IT');
+  await page.getByLabel(L.skills).fill('Flutter, TypeScript');
   if (isFreelancer) await page.getByLabel('Hourly rate').fill('$45');
   await page.getByRole('button', { name: /save and continue/i }).click();
   await page.waitForURL(/\/verify/, { timeout: 30000 })

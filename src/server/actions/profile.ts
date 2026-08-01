@@ -17,6 +17,12 @@ export interface FormResult {
   error?: string;
   fieldErrors?: Record<string, string>;
   ok?: boolean;
+  /**
+   * Something the action produced that the form has to show once and cannot
+   * fetch again — an invitation link, a device token. Never an error message:
+   * those are `error`, and mixing the two makes a success read as a failure.
+   */
+  message?: string;
 }
 
 const profileSchema = z.object({

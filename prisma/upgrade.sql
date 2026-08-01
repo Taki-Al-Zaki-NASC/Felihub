@@ -156,3 +156,203 @@ DO $$ BEGIN
   ALTER TABLE "Pledge" ADD CONSTRAINT "Pledge_backerId_fkey"
     FOREIGN KEY ("backerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+
+-- ── Apps: Kanban boards, the desktop tracker, and Team Manager ───────────
+-- Optional tools an account switches on in Settings → Apps. A missing
+-- AppInstall row means off; nothing reads absence as a default-on.
+--
+-- Generated from the schema delta and made re-runnable by hand, so this can be
+-- pasted into a SQL editor twice without erroring. See src/lib/apps.ts.
+DO $$ BEGIN
+  CREATE TYPE "TeamRole" AS ENUM ('VIEWER', 'MANAGER', 'ADMIN');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "TeamStatus" AS ENUM ('INVITED', 'ACTIVE', 'REMOVED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS "AppInstall" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "app" TEXT NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "settings" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AppInstall_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Board" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "jobId" TEXT,
+    "title" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Board_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "BoardColumn" (
+    "id" TEXT NOT NULL,
+    "boardId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "position" INTEGER NOT NULL,
+
+    CONSTRAINT "BoardColumn_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "BoardCard" (
+    "id" TEXT NOT NULL,
+    "boardId" TEXT NOT NULL,
+    "columnId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT,
+    "position" INTEGER NOT NULL,
+    "milestoneId" TEXT,
+    "assigneeId" TEXT,
+    "dueAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "BoardCard_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "TeamMember" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "memberId" TEXT,
+    "email" TEXT NOT NULL,
+    "role" "TeamRole" NOT NULL DEFAULT 'VIEWER',
+    "status" "TeamStatus" NOT NULL DEFAULT 'INVITED',
+    "tokenHash" TEXT,
+    "expiresAt" TIMESTAMP(3),
+    "invitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "acceptedAt" TIMESTAMP(3),
+
+    CONSTRAINT "TeamMember_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "TrackerDevice" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "pairedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastSeenAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+
+    CONSTRAINT "TrackerDevice_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "TimeEntry" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "deviceId" TEXT,
+    "jobId" TEXT,
+    "startedAt" TIMESTAMP(3) NOT NULL,
+    "endedAt" TIMESTAMP(3),
+    "seconds" INTEGER NOT NULL DEFAULT 0,
+    "note" TEXT,
+
+    CONSTRAINT "TimeEntry_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "ActivitySample" (
+    "id" TEXT NOT NULL,
+    "entryId" TEXT NOT NULL,
+    "at" TIMESTAMP(3) NOT NULL,
+    "activityPct" INTEGER NOT NULL DEFAULT 0,
+    "screenshotUrl" TEXT,
+
+    CONSTRAINT "ActivitySample_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "AppInstall_userId_enabled_idx" ON "AppInstall"("userId", "enabled");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "AppInstall_userId_app_key" ON "AppInstall"("userId", "app");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Board_jobId_key" ON "Board"("jobId");
+
+CREATE INDEX IF NOT EXISTS "Board_ownerId_updatedAt_idx" ON "Board"("ownerId", "updatedAt");
+
+CREATE INDEX IF NOT EXISTS "BoardColumn_boardId_position_idx" ON "BoardColumn"("boardId", "position");
+
+CREATE INDEX IF NOT EXISTS "BoardCard_boardId_idx" ON "BoardCard"("boardId");
+
+CREATE INDEX IF NOT EXISTS "BoardCard_columnId_position_idx" ON "BoardCard"("columnId", "position");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TeamMember_tokenHash_key" ON "TeamMember"("tokenHash");
+
+CREATE INDEX IF NOT EXISTS "TeamMember_memberId_idx" ON "TeamMember"("memberId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TeamMember_ownerId_email_key" ON "TeamMember"("ownerId", "email");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "TrackerDevice_tokenHash_key" ON "TrackerDevice"("tokenHash");
+
+CREATE INDEX IF NOT EXISTS "TrackerDevice_userId_revokedAt_idx" ON "TrackerDevice"("userId", "revokedAt");
+
+CREATE INDEX IF NOT EXISTS "TimeEntry_userId_startedAt_idx" ON "TimeEntry"("userId", "startedAt");
+
+CREATE INDEX IF NOT EXISTS "TimeEntry_jobId_startedAt_idx" ON "TimeEntry"("jobId", "startedAt");
+
+CREATE INDEX IF NOT EXISTS "ActivitySample_entryId_at_idx" ON "ActivitySample"("entryId", "at");
+
+DO $$ BEGIN
+  ALTER TABLE "AppInstall" ADD CONSTRAINT "AppInstall_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Board" ADD CONSTRAINT "Board_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Board" ADD CONSTRAINT "Board_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "BoardColumn" ADD CONSTRAINT "BoardColumn_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_columnId_fkey" FOREIGN KEY ("columnId") REFERENCES "BoardColumn"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "BoardCard" ADD CONSTRAINT "BoardCard_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TrackerDevice" ADD CONSTRAINT "TrackerDevice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "TrackerDevice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "Job"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "ActivitySample" ADD CONSTRAINT "ActivitySample_entryId_fkey" FOREIGN KEY ("entryId") REFERENCES "TimeEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

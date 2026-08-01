@@ -237,6 +237,75 @@ Postgres inside the runner, uses it, and destroys it.
 **Socket.io cannot run on Vercel** — see the top of this file. Messaging works
 today on ordinary request/response; live delivery needs that decision.
 
+## Apps
+
+Settings has two tabs, and the second is a grid of optional tools. All free,
+all off until switched on, each a card with an icon, a description, a FREE
+badge and a switch.
+
+| Tool | What it is | Backend |
+| --- | --- | --- |
+| **Kanban Boards** | Drag-and-drop board. Attach one to a job and it opens with that job's milestones already on it | `Board`, `BoardColumn`, `BoardCard` |
+| **Desktop Time Tracker** | Hours, activity samples and optional screenshots, reported against a contract | `TrackerDevice`, `TimeEntry`, `ActivitySample`, and `POST /api/tracker/ingest` |
+| **Team Manager** | Invite co-founders and managers with a role rather than your password | `TeamMember`, with hashed single-use invitations |
+
+`src/lib/apps.ts` is the single list. Settings renders from it, the Server
+Action validates against it, and the sidebar builds itself from it — so a tool
+cannot be advertised in Settings and unreachable in the product. A missing
+`AppInstall` row means off; nothing reads absence as a default-on, so shipping
+a new tool never silently enables it for people who never asked.
+
+Turning a tool off keeps its rows. A board is not deleted because somebody
+stopped using boards for a fortnight.
+
+**Two things about the tracker worth not undoing.** The desktop client
+authenticates as a *device*, never as the account: the token is stored as a
+SHA-256 hash, shown once, revocable on its own, and it can do exactly one thing
+— create time entries for the account that paired it. And screenshots are the
+freelancer's switch, not the client's. Watching somebody's screen without their
+knowledge is not a setting this will have.
+
+The ingest endpoint is documented and provider-agnostic, so the desktop client
+does not have to be ours:
+
+```
+POST /api/tracker/ingest
+Authorization: Bearer flk_…
+{ "startedAt": "…", "endedAt": "…", "seconds": 3600,
+  "jobId": "…", "samples": [{ "at": "…", "activityPct": 61 }] }
+→ 201 { "ok": true, "entryId": "…" }
+```
+
+A `jobId` from a device is checked against that account's own contracts, so a
+stolen token cannot log hours onto somebody else's job.
+
+## Signing up is different per account type
+
+`src/lib/onboarding.ts` holds one flow per role, and the onboarding page, the
+settings form and the progress rail all read it. The four roles were being
+asked the same eight questions with one word swapped — which is why a startup
+founder typed their company into a box labelled "Headline" and an agency had
+nowhere to say how many people it is.
+
+| | Asks for | Steps |
+| --- | --- | --- |
+| **Freelancer** | headline, skills, hourly rate, portfolio | Profile → Verification → Start bidding |
+| **Client** | company or role, what you hire for | Company → Verification → Post a job |
+| **Agency** | what you deliver, team size, day rate | Agency → Verification → Hire or be hired |
+| **Startup** | what you are building, team size, stage | Startup → Verification → Hire or raise |
+
+Each flow also states what a verified account of that type can actually do, at
+the top of the form, so the point of the typing is visible before the typing.
+
+## The desktop app
+
+`/download` is public and lists Windows, macOS and Linux. **The installers do
+not exist yet** and the page says so at the top rather than offering a button
+that 404s: the server side is finished and running, and the client has to be
+compiled and code-signed per platform, which needs a build pipeline and a
+signing certificate. `src/lib/desktop.ts` holds the release list — set `url`,
+`sha256` and `available: true` when a build exists, and nothing else changes.
+
 ## Startup fundraising
 
 The third side of the same marketplace: the same accounts, the same identity

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/shell/app-shell';
 import { getSessionUser } from '@/server/auth';
+import { enabledApps } from '@/server/services/apps';
+import { APP_KEYS } from '@/lib/apps';
 
 /**
  * The authenticated shell.
@@ -32,5 +34,11 @@ export default async function PlatformLayout({
   if (!user.onboarded) redirect('/onboarding');
   if (!user.isVerified) redirect('/verify');
 
-  return <AppShell user={user}>{children}</AppShell>;
+  // Resolved here rather than in the shell: the shell is a client component,
+  // and the list has to be in the first HTML or the sidebar rearranges itself
+  // after paint.
+  const on = await enabledApps(user.id);
+  const apps = APP_KEYS.filter((k) => on.has(k));
+
+  return <AppShell user={user} apps={apps}>{children}</AppShell>;
 }

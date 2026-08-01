@@ -85,6 +85,7 @@ export default function MarketingLayout({
             <FooterCol title="Product" links={[
               ['/browse', 'Browse open work'],
               ['/startups', 'Back a startup'],
+              ['/download', 'Desktop tracker'],
               ['/how-it-works#hiring', 'For hiring'],
               ['/how-it-works#freelancing', 'For freelancers'],
               ['/pricing', 'Fees'],
