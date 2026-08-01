@@ -6,14 +6,22 @@ import { money } from '@/lib/money';
 import { ProfileForm } from '@/components/profile/profile-form';
 import { AvatarUpload } from '@/components/profile/avatar-upload';
 import { Progress } from '@/components/onboarding/progress';
+import { AlreadyDone } from '@/components/ui/already-done';
 
 export const metadata: Metadata = { title: 'Finish your profile' };
 
 export default async function Onboarding() {
   const user = await requireUser();
-  // Already onboarded and verified? Then this page has nothing to do and the
-  // platform is where they belong.
-  if (user.onboarded && user.isVerified) redirect('/dashboard');
+  // Already finished? Say so rather than bouncing — a redirect here is what
+  // made the back button appear broken.
+  if (user.onboarded && user.isVerified) {
+    return (
+      <AlreadyDone
+        title="Your profile is complete"
+        body="Nothing left to fill in here. You can edit any of it later in Settings."
+        href="/dashboard" cta="Go to your dashboard" />
+    );
+  }
 
   const [profile, account] = await Promise.all([
     db.profile.findUnique({

@@ -1,21 +1,13 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
 import { TagInput } from '@/components/ui/tag-input';
-import { CATEGORIES } from '@/lib/categories';
+import { CATEGORIES, skillsFor } from '@/lib/categories';
 import { saveProfileAction, type FormResult } from '@/server/actions/profile';
-
-/** A nudge, not a taxonomy — the field accepts anything typed. It exists so
- *  the common skills are spelled the same way across profiles, which is what
- *  makes search find them. */
-const SKILL_SUGGESTIONS = [
-  'Flutter', 'React', 'TypeScript', 'Node.js', 'Python', 'Figma',
-  'UI Design', 'Copywriting', 'SEO', 'Firebase', 'PostgreSQL', 'Android',
-] as const;
 
 export interface ProfileDefaults {
   displayName: string;
@@ -38,6 +30,9 @@ export function ProfileForm({
   const [state, action] = useActionState<FormResult | null, FormData>(
     saveProfileAction, null,
   );
+  // Suggestions follow the chosen category, so an AI researcher is offered
+  // PyTorch rather than Figma.
+  const [category, setCategory] = useState(defaults.category);
   const fieldError = (k: string) => state?.fieldErrors?.[k];
 
   return (
@@ -82,7 +77,8 @@ export function ProfileForm({
         <label htmlFor="category" className="block text-sm font-semibold">
           {isFreelancer ? 'Category you work in' : 'Category you hire in'}
         </label>
-        <select id="category" name="category" defaultValue={defaults.category}
+        <select id="category" name="category" value={category}
+          onChange={(e) => setCategory(e.target.value)}
           className="mt-1.5 min-h-[44px] w-full rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
           <option value="" disabled>Choose one</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -105,7 +101,7 @@ export function ProfileForm({
         hint={isFreelancer
           ? 'Type a skill and press Enter. These are exactly what clients search on.'
           : 'Type a skill and press Enter, so freelancers know what you need.'}
-        suggestions={SKILL_SUGGESTIONS}
+        suggestions={skillsFor(category)}
         error={fieldError('skills')} />
 
       {isFreelancer && (

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/server/auth';
 import { SignUpForm } from '@/components/auth/sign-up-form';
+import { AlreadyDone } from '@/components/ui/already-done';
 
 export const metadata: Metadata = {
   title: 'Create your account',
@@ -25,7 +25,15 @@ export default async function SignUp({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (await getSessionUser()) redirect('/dashboard');
+  const user = await getSessionUser();
+  if (user) {
+    return (
+      <AlreadyDone
+        title={`You already have an account`}
+        body={`Signed in as ${user.displayName}. Sign out first if you want to create a second account.`}
+        href="/dashboard" cta="Go to your dashboard" />
+    );
+  }
   const { role } = await searchParams;
   return <SignUpForm initialRole={roleFrom(role)} />;
 }

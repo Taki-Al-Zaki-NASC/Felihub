@@ -4,6 +4,7 @@ import {
   BadgeCheck, EyeOff, FileLock2, Landmark, Percent, ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CATEGORIES, CATEGORY_BLURBS } from '@/lib/categories';
 
 export const metadata: Metadata = {
   title: 'Hire verified freelancers, or find verified work',
@@ -12,15 +13,6 @@ export const metadata: Metadata = {
     + 'or bid. Escrow milestones, and a flat 1% fee shown separately from '
     + 'payment processing.',
 };
-
-const CATEGORIES = [
-  ['Development & IT', 'Mobile, web, backend, DevOps'],
-  ['Design & Creative', 'Product, brand, illustration, motion'],
-  ['Writing & Translation', 'Technical, editorial, localisation'],
-  ['Sales & Marketing', 'Growth, SEO, paid, lifecycle'],
-  ['Finance & Accounting', 'Bookkeeping, modelling, audit prep'],
-  ['Admin & Support', 'Operations, research, assistance'],
-] as const;
 
 const CLIENT_STEPS = [
   ['Post what you need', 'Scope, budget and milestones. A few minutes.'],
@@ -115,11 +107,11 @@ export default function Home() {
             Browse by category
           </h2>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {CATEGORIES.map(([name, blurb]) => (
+            {CATEGORIES.map((name) => (
               <Link key={name} href="/sign-up?role=freelancer"
                 className="rounded-lg border border-border p-5 transition hover:-translate-y-0.5 hover:border-teal/40 hover:bg-teal-tint">
                 <p className="font-semibold">{name}</p>
-                <p className="mt-1 text-sm text-ink-muted">{blurb}</p>
+                <p className="mt-1 text-sm text-ink-muted">{CATEGORY_BLURBS[name]}</p>
               </Link>
             ))}
           </div>
@@ -200,8 +192,10 @@ function RoleCard({ tone, title, points, cta, href }: {
           </li>
         ))}
       </ul>
+      {/* A real 40px target. It was a bare text link, 20px tall — the primary
+          action on the card and the hardest thing on the page to tap. */}
       <Link href={href}
-        className={`mt-4 inline-block text-sm font-bold ${accent}`}>
+        className={`mt-3 inline-flex min-h-[40px] items-center text-sm font-bold ${accent}`}>
         {cta} →
       </Link>
     </div>

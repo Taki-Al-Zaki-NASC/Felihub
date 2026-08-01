@@ -6,6 +6,7 @@ import {
   FREE_VERIFICATION, depositFor, isVerified,
 } from '@/server/services/verification';
 import { VerifyPanel } from '@/components/verify/verify-panel';
+import { AlreadyDone } from '@/components/ui/already-done';
 import { Progress } from '@/components/onboarding/progress';
 
 export const metadata: Metadata = { title: 'Verify your account' };
@@ -13,17 +14,30 @@ export const metadata: Metadata = { title: 'Verify your account' };
 export default async function Verify() {
   const user = await requireUser();
   if (!user.onboarded) redirect('/onboarding');
-  if (user.isVerified) redirect('/dashboard');
+  if (user.isVerified) {
+    return (
+      <AlreadyDone
+        title="You are verified"
+        body="Your document and deposit are both on file. Posting, bidding and messaging are open."
+        href="/dashboard" cta="Go to your dashboard" />
+    );
+  }
 
   const record = await db.user.findUniqueOrThrow({
     where: { id: user.id },
     select: { idSubmitted: true, depositPaid: true, kycStage: true, role: true },
   });
 
-  // Belt and braces: the layout already redirects on `isVerified`, but reading
-  // it again from fresh data means a stale session cannot leave someone stuck
-  // on a page they have finished.
-  if (isVerified(record)) redirect('/dashboard');
+  // Belt and braces: reading it again from fresh data means a stale session
+  // cannot leave someone stuck on a page they have already finished.
+  if (isVerified(record)) {
+    return (
+      <AlreadyDone
+        title="You are verified"
+        body="Your document and deposit are both on file. Posting, bidding and messaging are open."
+        href="/dashboard" cta="Go to your dashboard" />
+    );
+  }
 
   const deposit = depositFor(record.role);
 

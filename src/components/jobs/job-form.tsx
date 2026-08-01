@@ -6,22 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
 import { TagInput } from '@/components/ui/tag-input';
 import { MilestoneEditor } from '@/components/jobs/milestone-editor';
-import { CATEGORIES } from '@/lib/categories';
+import { CATEGORIES, skillsFor } from '@/lib/categories';
 import { createJobAction } from '@/server/actions/jobs';
 import type { FormResult } from '@/server/actions/profile';
-
-/** Same list the profile form offers, so a job's skills and a freelancer's
- *  skills are spelled the same way and actually match. */
-const SKILL_SUGGESTIONS = [
-  'Flutter', 'React', 'TypeScript', 'Node.js', 'Python', 'Figma',
-  'UI Design', 'Copywriting', 'SEO', 'Firebase', 'PostgreSQL', 'Android',
-] as const;
 
 export function JobForm() {
   const [state, action] = useActionState<FormResult | null, FormData>(
     createJobAction, null,
   );
   const [budget, setBudget] = useState('');
+  const [category, setCategory] = useState('');
   const fieldError = (k: string) => state?.fieldErrors?.[k];
 
   return (
@@ -37,7 +31,8 @@ export function JobForm() {
         <label htmlFor="category" className="block text-sm font-semibold">
           Category
         </label>
-        <select id="category" name="category" defaultValue=""
+        <select id="category" name="category" value={category}
+          onChange={(e) => setCategory(e.target.value)}
           className="mt-1.5 min-h-[44px] w-full rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
           <option value="" disabled>Choose one</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -55,7 +50,7 @@ export function JobForm() {
       <TagInput label="Skills needed" name="skills"
         placeholder="Flutter"
         hint="Type a skill and press Enter. These are what freelancers search on."
-        suggestions={SKILL_SUGGESTIONS}
+        suggestions={skillsFor(category)}
         error={fieldError('skills')} />
 
       <Field label="Budget" name="budget" inputMode="decimal"

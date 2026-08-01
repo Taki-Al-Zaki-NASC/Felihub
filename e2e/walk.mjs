@@ -378,6 +378,42 @@ else {
   else ok('second milestone funded');
 }
 
+/* ── Navigation: the back button has to actually go back ──────────────── */
+console.log('\n=== NAVIGATION ===');
+{
+  // Four pages used to bounce a signed-in visitor forward to the dashboard,
+  // so pressing back landed on the dashboard again and the public home page
+  // was unreachable without editing the address bar.
+  const ctx = await browser.newContext();
+  const nav = await ctx.newPage();
+  const who = { ...CLIENT, email: `nav${stamp}@felicek.test`, name: 'Nav Tester' };
+  await nav.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await nav.getByRole('link', { name: /^post a job$/i }).first().click();
+  await nav.waitForURL(/sign-up/, { timeout: 20000 });
+  await signUp(nav, who, 'CLIENT');
+  await onboard(nav, who, false);
+  await verify(nav, '1984123456789');
+
+  let reachedHome = false;
+  for (let i = 0; i < 6; i++) {
+    await nav.goBack({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await nav.waitForTimeout(900);
+    if (new URL(nav.url()).pathname === '/dashboard' && i > 0) {
+      note('back button', 'a back press bounced forward to the dashboard again');
+      break;
+    }
+    if (new URL(nav.url()).pathname === '/') { reachedHome = true; break; }
+  }
+  if (reachedHome) ok('back walks out to the home page without bouncing');
+  else note('back button', 'never reached the home page by going back');
+
+  await open(nav, '/dashboard');
+  const homeLinks = await nav.locator('a[href="/"]').count();
+  if (homeLinks === 0) note('navigation', 'no link to the home page anywhere in the app');
+  else ok('the app links to the public home page');
+  await ctx.close();
+}
+
 /* ── Sessions ─────────────────────────────────────────────────────────── */
 console.log('\n=== SESSION ===');
 await open(c, `/settings`);

@@ -115,10 +115,12 @@ export function TagInput({
           <span key={tag}
             className="inline-flex max-w-full items-center gap-1 rounded-full bg-teal-tint py-1 pl-2.5 pr-1 text-sm font-medium text-teal-deep">
             <span className="truncate">{tag}</span>
+            {/* 24px, not the 20px this started at: it is the only way to
+                undo a chip, and on a phone a 20px target is a coin toss. */}
             <button type="button" onClick={() => remove(tag)}
               aria-label={`Remove ${tag}`}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-teal/20">
-              <X className="h-3 w-3" />
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full hover:bg-teal/20">
+              <X className="h-3.5 w-3.5" />
             </button>
           </span>
         ))}

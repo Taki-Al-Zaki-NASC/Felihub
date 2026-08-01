@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
-  Briefcase, FileText, LayoutDashboard, Menu, MessageSquare,
+  Briefcase, FileText, Home, LayoutDashboard, Menu, MessageSquare,
   Search, Settings, Users, Wallet, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -67,14 +67,15 @@ export function AppShell({
             <span className="font-serif text-lg font-semibold">Felicek</span>
           </Link>
 
-          <button
-            className="ml-4 hidden h-9 w-72 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-ink-muted transition hover:border-border-strong md:flex"
-            aria-label={hires ? 'Search talent' : 'Search jobs'}
-          >
+          {/* This was a button with no handler — it looked like search and did
+              nothing when clicked, which is worse than not being there. It now
+              goes to the page that actually has the search box, and the ⌘K
+              hint is gone until there is a palette behind it. */}
+          <Link href={hires ? '/talent' : '/jobs'}
+            className="ml-4 hidden h-9 w-72 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-ink-muted transition hover:border-border-strong hover:text-ink md:flex">
             <Search className="h-4 w-4" />
             <span>{hires ? 'Search talent' : 'Search jobs'}</span>
-            <kbd className="ml-auto rounded border border-border px-1.5 text-[10px]">⌘K</kbd>
-          </button>
+          </Link>
 
           <div className="ml-auto flex items-center gap-2">
             {hires && (
@@ -103,8 +104,9 @@ export function AppShell({
         </div>
       </header>
 
-      <aside className="fixed left-0 top-14 z-30 hidden h-[calc(100vh-3.5rem)] w-60 border-r border-border bg-canvas lg:block">
+      <aside className="fixed left-0 top-14 z-30 hidden h-[calc(100vh-3.5rem)] w-60 flex-col border-r border-border bg-canvas lg:flex">
         <SidebarNav nav={nav} pathname={pathname} />
+        <PublicSiteLink />
       </aside>
 
       {/* Mobile drawer carries the same destinations, not a reduced set. */}
@@ -112,7 +114,7 @@ export function AppShell({
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-ink/40"
             onClick={() => setMobileOpen(false)} aria-hidden />
-          <div className="absolute inset-y-0 left-0 w-64 bg-canvas shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-64 flex-col bg-canvas shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-border px-4">
               <span className="font-serif text-lg font-semibold">Felicek</span>
               <Button variant="ghost" size="icon" aria-label="Close navigation"
@@ -122,6 +124,7 @@ export function AppShell({
             </div>
             <SidebarNav nav={nav} pathname={pathname}
               onNavigate={() => setMobileOpen(false)} />
+            <PublicSiteLink onNavigate={() => setMobileOpen(false)} />
           </div>
         </div>
       )}
@@ -129,6 +132,26 @@ export function AppShell({
       <main className="pt-14 lg:pl-60">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
+    </div>
+  );
+}
+
+/**
+ * A way back to the public site.
+ *
+ * There was none: the logo goes to the dashboard, as an app's logo should, and
+ * nothing else linked to `/`. Combined with four pages that bounced a
+ * signed-in visitor forward, that left the home page unreachable except by
+ * editing the address bar.
+ */
+function PublicSiteLink({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="mt-auto border-t border-border p-3">
+      <Link href="/" onClick={onNavigate}
+        className="flex min-h-[40px] items-center gap-3 rounded-lg px-3 text-sm font-medium text-ink-muted transition hover:bg-backdrop hover:text-ink">
+        <Home className="h-4 w-4 shrink-0" />
+        Felicek home page
+      </Link>
     </div>
   );
 }
