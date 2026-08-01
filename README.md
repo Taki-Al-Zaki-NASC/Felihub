@@ -78,6 +78,29 @@ Not built yet: WebRTC calls, skill challenges, milestone release, reviews,
 deliverable watermarking, and the payment gateway. The schema carries all of
 them.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **Build, as Vercel does** — `npm ci && typecheck && build` with *no*
+  environment variables set, then asserts the build produced real routes. The
+  first v2 deploy 404'd on every path because the App Router had no `page.tsx`
+  anywhere and the build still exited zero; this guard fails that build.
+- **Walk the product** — `e2e/walk.mjs` against a real Postgres service
+  container: sign up, onboard, verify, post, bid, hire, fund escrow, message,
+  sign out, sign back in, as both a client and a freelancer. Any 5xx, uncaught
+  exception or console error anywhere in that walk fails the run.
+
+Run the walk locally against a database:
+
+```bash
+npm run build && npm start &
+BASE=http://localhost:3000 npm run test:e2e
+```
+
+CI does **not** touch your production database. It creates a throwaway
+Postgres inside the runner, uses it, and destroys it.
+
 ## One decision still open
 
 **Socket.io cannot run on Vercel** — see the top of this file. Messaging works

@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push supersedes the first — no point finishing a run for a commit
+# that is already stale.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Exactly what Vercel does, with no environment variables set. This is the
+  # check that would have caught the deploy that 404'd on every path: it
+  # asserts the build produces real routes, not just that it exits zero.
+  build:
+    name: Build (as Vercel does, no env)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: The build must produce actual routes
+        run: |
+          test -f .next/routes-manifest.json || { echo "no routes manifest"; exit 1; }
+          pages=$(node -e "
+            const m = require('./.next/routes-manifest.json');
+            const all = [...m.staticRoutes, ...m.dynamicRoutes]
+              .map(r => r.page)
+              .filter(p => !p.startsWith('/_') && p !== '/404' && p !== '/500');
+            console.log(all.length);
+            console.error(all.sort().join('\n'));
+          ")
+          echo "routes: $pages"
+          if [ "$pages" -lt 10 ]; then
+            echo "::error::Only $pages routes — the app would 404. Did a page.tsx go missing?"
+            exit 1
+          fi
+
+  # Signs up, onboards, verifies, posts, bids, hires and messages, in a real
+  # browser against a real Postgres. Unit tests kept passing while the product
+  # was unusable; this is the check that does not.
+  walk:
+    name: Walk the product end to end
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: felicek
+          POSTGRES_PASSWORD: felicek
+          POSTGRES_DB: felicek
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://felicek:felicek@localhost:5432/felicek
+      DIRECT_URL: postgresql://felicek:felicek@localhost:5432/felicek
+      AUTH_SECRET: ci-only-secret-that-is-long-enough-to-sign-with
+      BASE: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx prisma db push --skip-generate
+      - run: npm run build
+      - name: Start the production server
+        run: |
+          npm start &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:3000 && exit 0
+            sleep 2
+          done
+          echo "::error::The server never came up"
+          exit 1
+      - run: npm run test:e2e
