@@ -125,7 +125,7 @@ export default async function Talent({
                 <div className="flex items-start gap-3">
                   <Avatar username={p.username} name={p.displayName} size={44} />
                   <div className="min-w-0">
-                    <Link href={`/profile/${p.username}`}
+                    <Link href={`/profile/${p.username}`} prefetch={false}
                       className="block truncate font-semibold hover:underline">
                       {p.displayName}
                     </Link>
@@ -179,12 +179,12 @@ export default async function Talent({
 
                 <div className="mt-3 flex gap-2">
                   <Button asChild size="sm" variant="primary" className="flex-1">
-                    <Link href={`/messages/new?to=${p.username}`}>
+                    <Link href={`/messages/new?to=${p.username}`} prefetch={false}>
                       <MessageSquare className="h-4 w-4" /> Message
                     </Link>
                   </Button>
                   <Button asChild size="sm" variant="outline" className="flex-1">
-                    <Link href={`/profile/${p.username}`}>Profile</Link>
+                    <Link href={`/profile/${p.username}`} prefetch={false}>Profile</Link>
                   </Button>
                 </div>
               </Card>

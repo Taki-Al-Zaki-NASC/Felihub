@@ -12,22 +12,88 @@ Next.js 15 App Router · React 19 · TypeScript · Tailwind + shadcn/ui (Radix,
 Lucide) · PostgreSQL + Prisma · Server Actions · Zod · TanStack Query ·
 Zustand · WebRTC.
 
-## One decision still open
+## Live chat and calls
 
-**Socket.io cannot run on Vercel.** Its functions are serverless and
-short-lived; there is no persistent process to hold a WebSocket. Building on
-it means chat works locally and silently fails in production.
+Settled: **Supabase Realtime Broadcast**. Socket.io needs a persistent process
+and Vercel's functions are short-lived, so it would have worked locally and
+failed in production.
 
-The scaffold assumes **Supabase Realtime** (Postgres logical replication over
-WebSocket) for chat, live notifications and WebRTC signalling — free tier, no
-server to run, and it gives us Postgres too. Media still travels peer to peer;
-only signalling changes.
+Messages send optimistically and arrive over a broadcast channel. Voice and
+video are peer-to-peer WebRTC — the media never touches a server of ours, and
+only the negotiation (offer, answer, ICE candidates) crosses Realtime. That is
+a handful of small messages, which is why Realtime is enough for signalling
+where it would not be enough for media.
 
-If Socket.io is required, it needs a small always-on host (Railway/Fly), which
-breaks "Vercel only". Say which and Step 2 wires it.
+Four environment variables turn it on, and everything degrades without them —
+chat falls back to the request/response path, calls are simply not offered:
+
+| Variable | Where |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the same page |
+| `SUPABASE_JWT_SECRET` | the same page, "JWT Secret" — server-side only |
+
+Then paste **`prisma/realtime.sql`** into the SQL editor once.
+
+**Why that file matters.** The anon key ships to every browser, so on a public
+channel anyone who could guess a thread id would receive that conversation as
+it was sent. Felicek only joins channels with `private: true`, and
+`/api/realtime/token` mints a five-minute JWT *after* checking against this
+app's own database that the account is a member of the thread. The policy in
+`realtime.sql` pins that token to the one channel it was issued for, so it
+cannot be replayed against another.
+
+STUN only, no TURN. Two peers behind symmetric NAT will fail to connect and the
+UI says so, rather than sitting on "connecting" — TURN means relaying media
+through a server somebody pays for.
 
 `prisma/schema.prisma` and `src/server/services/verification.ts` encode the
 business model; read those first.
+
+## Why it was slow, and what actually fixed it
+
+Measured, not guessed. `PRISMA_LOG_QUERIES=1` prints one line per query with
+its duration; the numbers below are query counts per page render.
+
+| | Before | After |
+| --- | --- | --- |
+| Every signed-in page | 2 round trips before the page starts | 1 |
+| `/talent` page render | 19 queries | **7** |
+| `/talent` avatar requests | 33 per visit, every visit | 33 first visit, **0** warm |
+| Sending a message | ~10 sequential round trips before it appeared | appears immediately |
+
+Locally a query is ~1ms and none of this shows. Against Supabase in another
+region every query is a round trip of 100–300ms, so a page doing 19 of them
+spends four seconds in the database before it renders. Three causes:
+
+**1. Link prefetching was rendering pages nobody clicked.** Next prefetches
+every `<Link>` that scrolls into view. On the talent directory that is nine
+other pages rendered on the server — each running the layout's session query,
+its own `generateMetadata` query and its own page queries — while you read the
+one you are on. Repeated links inside a list now carry `prefetch={false}`;
+navigation and single primary actions still prefetch, because there are a
+handful of them and they are what gets clicked.
+
+**2. Two sequential queries before any page began.** The layout fetched the
+session, then fetched the enabled apps. `AppInstall` is folded into the session
+query now.
+
+**3. `no-cache` on avatars.** Fixing the stale-placeholder bug with `no-cache`
+made the browser revalidate *every* avatar on *every* page view — fifty
+conditional requests on the directory, each a round trip. Now `max-age=60,
+stale-while-revalidate=600`: one stale minute after somebody changes their
+photo, instead of a request storm on every navigation.
+
+**4. Sending a message revalidated the whole route.** `revalidatePath` re-ran
+the layout and every query on the page before the sender's own message
+appeared. It is rendered optimistically now and the write happens behind it;
+if the write fails the message is marked "Not sent" and the text goes back in
+the box rather than vanishing.
+
+If it is still slow after all of that, check `/api/health` for `dbLatencyMs`.
+Over ~60ms means the database is in a different region from the functions, and
+no amount of query removal fixes a physical distance — set Vercel → Settings →
+Functions → Function Region to match the Supabase project's region.
 
 ## Setup
 

@@ -12,7 +12,6 @@ import { ExperienceEditor } from '@/components/profile/experience-editor';
 import { parseExperience } from '@/lib/experience';
 import { signOutAction } from '@/server/actions/auth';
 import { appsFor } from '@/lib/apps';
-import { enabledApps } from '@/server/services/apps';
 import { AppCard } from '@/components/settings/app-card';
 
 export const metadata: Metadata = { title: 'Settings' };
@@ -59,7 +58,8 @@ export default async function Settings({
 
   const isFreelancer = account.role === 'FREELANCER';
   const offered = appsFor(account.role);
-  const on = await enabledApps(user.id);
+  // From the session, not a second query — see server/auth.ts.
+  const on = new Set(user.apps);
 
   return (
     <div className="mx-auto max-w-3xl">

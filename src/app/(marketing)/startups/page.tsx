@@ -125,7 +125,7 @@ export default async function Startups({
             return (
               <li key={r.id} className="min-w-0">
                 <Card className="flex h-full flex-col p-5 transition hover:border-border-strong">
-                  <Link href={`/startups/${r.id}`} className="min-w-0 flex-1">
+                  <Link href={`/startups/${r.id}`} prefetch={false} className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone="violet">{STAGE_LABELS[r.stage as Stage] ?? r.stage}</Badge>
                       <Badge>{r.category}</Badge>

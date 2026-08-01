@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Monitor, Timer } from 'lucide-react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
-import { appEnabled } from '@/server/services/apps';
+import { hasApp } from '@/server/services/apps';
 import { ago } from '@/lib/money';
 import { Badge, Card, CardHeader, Empty, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const hhmm = (seconds: number) => {
 
 export default async function Tracker() {
   const user = await requireUser();
-  if (!(await appEnabled(user.id, 'TIME_TRACKER'))) return <AppOff app="TIME_TRACKER" />;
+  if (!hasApp(user, 'TIME_TRACKER')) return <AppOff app="TIME_TRACKER" />;
 
   const [devices, entries, totals] = await Promise.all([
     db.trackerDevice.findMany({

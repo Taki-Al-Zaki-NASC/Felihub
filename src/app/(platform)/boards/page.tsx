@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { KanbanSquare } from 'lucide-react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
-import { appEnabled } from '@/server/services/apps';
+import { hasApp } from '@/server/services/apps';
 import { ago } from '@/lib/money';
 import { Card, Empty, PageHeader } from '@/components/ui/card';
 import { AppOff } from '@/components/settings/app-off';
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Boards' };
 
 export default async function Boards() {
   const user = await requireUser();
-  if (!(await appEnabled(user.id, 'KANBAN'))) return <AppOff app="KANBAN" />;
+  if (!hasApp(user, 'KANBAN')) return <AppOff app="KANBAN" />;
 
   const [boards, jobs] = await Promise.all([
     db.board.findMany({
@@ -55,7 +55,7 @@ export default async function Boards() {
           {boards.map((b) => (
             <li key={b.id} className="min-w-0">
               <Card className="h-full transition hover:border-border-strong">
-                <Link href={`/boards/${b.id}`} className="block p-5">
+                <Link href={`/boards/${b.id}`} prefetch={false} className="block p-5">
                   <h2 className="font-serif text-base font-semibold">{b.title}</h2>
                   <p className="mt-1 text-xs text-ink-muted">
                     {b._count.cards} {b._count.cards === 1 ? 'card' : 'cards'}

@@ -184,7 +184,7 @@ export default async function RaiseDetail({
                     )}
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {b.who ? (
-                        <Link href={`/profile/${b.who.username}`}
+                        <Link href={`/profile/${b.who.username}`} prefetch={false}
                           className="font-medium hover:underline">
                           {b.who.displayName}
                         </Link>

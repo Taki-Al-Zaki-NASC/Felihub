@@ -18,4 +18,12 @@ export interface SessionUser {
   isVerified: boolean;
   onboarded: boolean;
   unreadNotifications: number;
+  /**
+   * Optional tools this account has switched on, from `AppInstall`.
+   *
+   * Carried on the session because the shell needs it to build the sidebar,
+   * and a second query for it made every signed-in page wait two round trips
+   * before rendering rather than one.
+   */
+  apps: string[];
 }

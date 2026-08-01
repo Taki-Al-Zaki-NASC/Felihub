@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Users } from 'lucide-react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
-import { appEnabled } from '@/server/services/apps';
+import { hasApp } from '@/server/services/apps';
 import { ago } from '@/lib/money';
 import { Badge, Card, CardHeader, Empty, PageHeader } from '@/components/ui/card';
 import { AppOff } from '@/components/settings/app-off';
@@ -18,7 +18,7 @@ const WHAT_A_ROLE_CAN_DO = {
 
 export default async function Team() {
   const user = await requireUser();
-  if (!(await appEnabled(user.id, 'TEAM_MANAGER'))) return <AppOff app="TEAM_MANAGER" />;
+  if (!hasApp(user, 'TEAM_MANAGER')) return <AppOff app="TEAM_MANAGER" />;
 
   const [members, memberOf] = await Promise.all([
     db.teamMember.findMany({

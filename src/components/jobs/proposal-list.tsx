@@ -44,7 +44,7 @@ export function ProposalList({
                 <Avatar username={p.freelancer.username}
                   name={p.freelancer.displayName} size={40} />
                 <div className="min-w-0">
-                  <Link href={`/profile/${p.freelancer.username}`}
+                  <Link href={`/profile/${p.freelancer.username}`} prefetch={false}
                     className="font-semibold hover:underline">
                     {p.freelancer.displayName}{isMine && ' (you)'}
                   </Link>

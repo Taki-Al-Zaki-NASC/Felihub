@@ -26,8 +26,20 @@ export const enabledApps = cache(async (userId: string): Promise<Set<AppKey>> =>
   }
 });
 
-/** Whether one tool is on. Used to gate its own pages, so a link somebody
- *  bookmarked before switching it off does not still work. */
+/**
+ * Whether one tool is on, answered from the session.
+ *
+ * Every page that gates on this has already called `requireUser`, and the
+ * session carries the list — so this is a set lookup rather than the extra
+ * round trip it used to be. On a database in another region that mattered:
+ * /boards, /tracker and /team each paid for it before rendering anything.
+ */
+export function hasApp(user: { apps: string[] }, app: AppKey): boolean {
+  return user.apps.includes(app);
+}
+
+/** Whether one tool is on, for the few callers that hold only an id. Prefer
+ *  `hasApp` — this is a query. */
 export async function appEnabled(userId: string, app: AppKey): Promise<boolean> {
   return (await enabledApps(userId)).has(app);
 }

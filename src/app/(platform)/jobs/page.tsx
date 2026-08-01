@@ -156,7 +156,7 @@ export default async function Jobs({
             {shown.map(({ job, match: m }) => (
               <li key={job.id}>
                 <Card className="transition hover:border-border-strong">
-                  <Link href={`/jobs/${job.id}`} className="block p-5">
+                  <Link href={`/jobs/${job.id}`} prefetch={false} className="block p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <h2 className="font-serif text-base font-semibold">{job.title}</h2>
                       <div className="flex items-center gap-2">

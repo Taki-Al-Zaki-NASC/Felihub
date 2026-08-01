@@ -38,10 +38,13 @@ export async function sendMessageAction(
     select: { userId: true },
   });
 
+  let created = '';
   await db.$transaction(async (tx) => {
-    await tx.message.create({
+    const row = await tx.message.create({
       data: { threadId, senderId: user.id, body: parsed.data },
+      select: { id: true },
     });
+    created = row.id;
     await tx.thread.update({
       where: { id: threadId },
       data: { lastMessageAt: new Date() },
@@ -59,8 +62,21 @@ export async function sendMessageAction(
     }
   });
 
-  revalidatePath(`/messages/${threadId}`);
-  return { ok: true };
+  // Deliberately *not* revalidating this thread's own page.
+  //
+  // `revalidatePath` here re-ran the whole route on every send — the layout's
+  // session lookup, the thread query, the message list — and the sender waited
+  // for all of it before their own message appeared. That is the delay. The
+  // sender renders it optimistically and the other side gets it over Realtime
+  // broadcast; both are already correct before this action returns.
+  //
+  // The *list* page is still revalidated, because its ordering and unread
+  // counts change and nothing on the client is tracking that.
+  revalidatePath('/messages');
+
+  // The real id, so the optimistic row can adopt it and a later broadcast of
+  // the same message is recognised as a duplicate rather than shown twice.
+  return { ok: true, message: created };
 }
 
 /**

@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { ExternalLink } from 'lucide-react';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
-import { appEnabled } from '@/server/services/apps';
+import { hasApp } from '@/server/services/apps';
 import { PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppOff } from '@/components/settings/app-off';
@@ -27,7 +27,7 @@ export default async function BoardPage({
 }) {
   const { id } = await params;
   const user = await requireUser();
-  if (!(await appEnabled(user.id, 'KANBAN'))) return <AppOff app="KANBAN" />;
+  if (!hasApp(user, 'KANBAN')) return <AppOff app="KANBAN" />;
 
   // Readable by the owner, and by whoever is hired on the job it is attached
   // to — a board the freelancer cannot see is a status report, not a board.

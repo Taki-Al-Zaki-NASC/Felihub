@@ -27,6 +27,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     select: {
       id: true, email: true, username: true, displayName: true, role: true,
       idSubmitted: true, depositPaid: true, kycStage: true,
+      // Folded in rather than fetched separately. The layout needs the session
+      // *and* the enabled tools before it can render the shell, and asking for
+      // them one after the other cost every signed-in page two sequential
+      // round trips instead of one. On a database in another region that is
+      // most of the wait before any HTML exists.
+      apps: { where: { enabled: true }, select: { app: true } },
       _count: { select: { notifications: { where: { read: false } } } },
       profile: { select: { headline: true } },
     },
@@ -42,6 +48,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     isVerified: isVerified(user),
     onboarded: Boolean(user.profile),
     unreadNotifications: user._count.notifications,
+    apps: user.apps.map((a) => a.app),
   };
 });
 

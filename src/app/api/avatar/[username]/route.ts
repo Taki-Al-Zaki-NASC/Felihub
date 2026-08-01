@@ -35,7 +35,24 @@ export const dynamic = 'force-dynamic';
  * asks whether they are still current. With an ETag the answer is a 304 with
  * no body, which costs about what the stale hit cost and is always right.
  */
-const REVALIDATE = 'public, no-cache';
+/**
+ * `no-cache` was too strong, and it showed.
+ *
+ * It fixed the real bug — the placeholder being cached under the same URL as
+ * the photo, so an upload did not appear — but it made the browser revalidate
+ * *every* avatar on *every* page view. The talent directory is fifty faces:
+ * fifty conditional requests, each one a round trip to a database that may be
+ * in another region, on every single navigation. That is a page that feels
+ * slow for a reason that has nothing to do with the page.
+ *
+ * A minute of `max-age` costs one stale minute after somebody changes their
+ * photo — the case this whole comment exists because of — and removes the
+ * per-view storm. `stale-while-revalidate` then lets the browser paint the
+ * cached face instantly and fetch the new one behind it, so the *next* view is
+ * current even if this one was not. The ETag still makes any revalidation a
+ * 304 with no body.
+ */
+const REVALIDATE = 'public, max-age=60, stale-while-revalidate=600';
 
 /** A neutral placeholder with the initial, so a missing photo is still one
  *  cheap request rather than a branch in every component. */

@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/shell/app-shell';
 import { getSessionUser } from '@/server/auth';
-import { enabledApps } from '@/server/services/apps';
-import { APP_KEYS } from '@/lib/apps';
+import { APP_KEYS, type AppKey } from '@/lib/apps';
 
 /**
  * The authenticated shell.
@@ -34,11 +33,10 @@ export default async function PlatformLayout({
   if (!user.onboarded) redirect('/onboarding');
   if (!user.isVerified) redirect('/verify');
 
-  // Resolved here rather than in the shell: the shell is a client component,
-  // and the list has to be in the first HTML or the sidebar rearranges itself
-  // after paint.
-  const on = await enabledApps(user.id);
-  const apps = APP_KEYS.filter((k) => on.has(k));
+  // Already on the session — see the note in server/auth.ts about why this is
+  // not a second query. Filtered through APP_KEYS so a row for a tool that has
+  // since been removed cannot put a dead entry in the sidebar.
+  const apps = APP_KEYS.filter((k) => user.apps.includes(k)) as AppKey[];
 
   return <AppShell user={user} apps={apps}>{children}</AppShell>;
 }

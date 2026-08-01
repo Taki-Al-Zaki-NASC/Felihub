@@ -104,7 +104,7 @@ export default async function Browse({
             {result.jobs.map((job) => (
               <li key={job.id}>
                 <Card className="transition hover:border-border-strong">
-                  <Link href={`/browse/${job.id}`} className="block p-5">
+                  <Link href={`/browse/${job.id}`} prefetch={false} className="block p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <h2 className="font-serif text-base font-semibold">{job.title}</h2>
                       <span className="font-semibold">{money(job.budgetCents)}</span>

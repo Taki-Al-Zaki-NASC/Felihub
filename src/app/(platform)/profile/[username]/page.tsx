@@ -241,7 +241,7 @@ export default async function Profile({
                         className={`h-3.5 w-3.5 ${i < r.rating ? 'fill-amber' : 'text-border-strong'}`} />
                     ))}
                   </span>
-                  <Link href={`/profile/${r.author.username}`}
+                  <Link href={`/profile/${r.author.username}`} prefetch={false}
                     className="text-sm font-semibold hover:underline">
                     {r.author.displayName}
                   </Link>
