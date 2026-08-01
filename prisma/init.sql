@@ -90,6 +90,7 @@ CREATE TABLE "Job" (
     "category" TEXT NOT NULL,
     "skills" TEXT[],
     "budgetCents" INTEGER,
+    "durationDays" INTEGER,
     "status" "JobStatus" NOT NULL DEFAULT 'OPEN',
     "hiredProposalId" TEXT,
     "escrowHeldCents" INTEGER NOT NULL DEFAULT 0,

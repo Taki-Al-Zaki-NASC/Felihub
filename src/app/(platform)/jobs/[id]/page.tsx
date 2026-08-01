@@ -37,7 +37,7 @@ export default async function JobDetail({
     where: { id },
     select: {
       id: true, title: true, description: true, category: true, skills: true,
-      budgetCents: true, status: true, escrowHeldCents: true,
+      budgetCents: true, durationDays: true, status: true, escrowHeldCents: true,
       proposalsCount: true, createdAt: true, ownerId: true,
       owner: { select: { displayName: true, username: true } },
       milestones: {
@@ -77,7 +77,8 @@ export default async function JobDetail({
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <div>
         <PageHeader title={job.title}
-          description={`${job.category} · posted ${ago(job.createdAt)} by ${job.owner.displayName}`} />
+          description={`${job.category} · posted ${ago(job.createdAt)} by ${job.owner.displayName}`
+            + (job.durationDays ? ` · about ${job.durationDays} days` : '')} />
 
         <Card className="p-5">
           <div className="flex flex-wrap items-center gap-2">

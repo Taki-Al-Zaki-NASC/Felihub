@@ -111,6 +111,11 @@ jobs:
             -f prisma/upgrade.sql
           echo "upgrade.sql applied twice with no error"
 
+      # The seed is part of the product surface: it must keep matching the
+      # schema, and its skills must stay inside the taxonomy or the jobs it
+      # creates match nobody. It validates both and exits non-zero if not.
+      - run: npm run db:seed
+
       - run: npm run build
       - name: Start the production server
         run: |

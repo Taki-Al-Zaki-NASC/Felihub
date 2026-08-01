@@ -132,7 +132,10 @@ export function TagInput({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          maxLength={MAX_TAG_LENGTH}
+          // Deliberately no maxLength. It applies to the whole draft, not to
+          // one tag, so pasting "Red-teaming, RLHF, Model Evaluation" was
+          // silently truncated at 30 characters — mid-word, losing two tags.
+          // The per-tag limit is enforced in `add`, which splits first.
           disabled={tags.length >= max}
           // Committing on blur too: people type a skill and click Save, and
           // losing it silently is worse than any keyboard convention.

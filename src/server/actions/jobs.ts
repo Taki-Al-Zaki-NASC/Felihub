@@ -22,6 +22,7 @@ const jobSchema = z.object({
   category: z.enum(CATEGORIES, { message: 'Pick a category.' }),
   skills: tagsSchema.min(1, 'List at least one skill.'),
   budgetCents: z.number().int().positive('Enter a budget.'),
+  durationDays: z.number().int().min(1).max(3650).nullable(),
   milestones: milestonesSchema,
 });
 
@@ -68,6 +69,9 @@ export async function createJobAction(
     category: form.get('category'),
     skills: parseTags(form.get('skills')),
     budgetCents: parseMoney(String(form.get('budget') ?? '')) ?? 0,
+    durationDays: String(form.get('durationDays') ?? '').trim()
+      ? Number(form.get('durationDays'))
+      : null,
     milestones: parseMilestones(form.get('milestones')),
   });
   if (!parsed.success) return flatten(parsed.error);

@@ -282,6 +282,53 @@ if (!(await bid.count())) {
   } else ok('proposal submitted, and its author can read it back');
 }
 
+/* ── Seeded sample jobs, and the category filter ───────────────────────── */
+console.log('\n=== SAMPLE DATA ===');
+{
+  // Present only when the database was seeded; CI always seeds, a developer
+  // running the walk by hand may not have.
+  await open(f, '/jobs?match=0');
+  const all = await body(f);
+  if (!/Automated ETL pipeline/.test(all)) {
+    ok('no sample data in this database — skipping the seed checks');
+  } else {
+    const titles = [
+      'Automated ETL pipeline', 'Real-time streaming data pipeline',
+      'PostgreSQL query optimisation', 'RLHF and red-teaming audit',
+      'RAG pipeline benchmarking', 'Paper reproduction',
+      'Customer churn prediction', 'Interactive financial forecasting',
+    ];
+    const missing = titles.filter((t) => !all.includes(t));
+    if (missing.length) note('sample data', `not on the board: ${missing.join(', ')}`);
+    else ok(`all ${titles.length} sample jobs appear on the board`);
+
+    for (const [category, expected] of [
+      ['Data Engineering', 3],
+      ['AI Research & Evaluation', 3],
+      ['Data Science & Analytics', 2],
+    ]) {
+      await open(f, `/jobs?match=0&category=${encodeURIComponent(category)}`);
+      const text = await body(f);
+      const n = titles.filter((t) => text.includes(t)).length;
+      if (n !== expected) note('category filter', `${category} showed ${n}, expected ${expected}`);
+      else ok(`category filter: ${category} → ${n} jobs`);
+    }
+
+    // A milestone breakdown and a duration are what make a post usable.
+    await open(f, '/jobs?match=0&category=' + encodeURIComponent('Data Engineering'));
+    await f.getByRole('link', { name: /Automated ETL pipeline/ }).first().click();
+    await settle(f);
+    const detail = await body(f);
+    for (const need of ['Airflow', 'Snowflake', 'Source audit', '45 days', '$4,800']) {
+      if (!detail.includes(need)) note('sample job detail', `missing "${need}"`);
+    }
+    if (['Airflow', 'Snowflake', 'Source audit', '45 days', '$4,800']
+      .every((n) => detail.includes(n))) {
+      ok('a sample job shows its skills, duration, budget and milestones');
+    }
+  }
+}
+
 /* ── Privacy: a competitor must not be able to read another bid ────────── */
 console.log('\n=== PROPOSAL PRIVACY ===');
 {

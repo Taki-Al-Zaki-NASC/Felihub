@@ -54,3 +54,8 @@ CREATE INDEX IF NOT EXISTS "ChallengeAnswer_challengeId_idx"
 -- already existed; these complete the private set.
 ALTER TABLE "Proposal" ADD COLUMN IF NOT EXISTS "timelineDays" INTEGER;
 ALTER TABLE "Proposal" ADD COLUMN IF NOT EXISTS "attachmentUrl" TEXT;
+
+-- ── Jobs advertise an expected duration ──────────────────────────────────
+-- The client's calendar estimate, distinct from Proposal.timelineDays, which
+-- is what a freelancer offers back.
+ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS "durationDays" INTEGER;

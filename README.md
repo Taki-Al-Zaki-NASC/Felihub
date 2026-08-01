@@ -93,6 +93,27 @@ Two things the app itself does to stay quick, worth not undoing:
   the browser holds the *previous* page for the whole of it and the click
   appears to have done nothing.
 
+### Sample data
+
+```bash
+npm run db:seed
+```
+
+Three verified client accounts and eight job posts across Data Engineering,
+AI Research & Evaluation and Data Science & Analytics — with real milestone
+breakdowns, durations and budgets, so the board, the category filter and the
+match score have something to work against.
+
+It is idempotent: run it twice and nothing changes, and it never deletes a row
+it did not create. Seed accounts are prefixed `sample-` and named "(sample)",
+so a real freelancer browsing the board can tell demonstration data from
+somebody's actual budget.
+
+The script validates itself before writing anything: every skill must exist in
+`src/lib/categories.ts`, and every job's milestones must sum to its budget. A
+skill typo is otherwise invisible — the job saves and then matches nobody,
+because the match score compares against the list freelancers pick from.
+
 ### Upgrading an existing database
 
 `prisma/init.sql` builds a database from nothing. When the schema changes, an

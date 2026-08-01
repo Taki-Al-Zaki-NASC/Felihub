@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Briefcase, Search, SlidersHorizontal } from 'lucide-react';
 import { db } from '@/server/db';
+import { CATEGORIES } from '@/lib/categories';
 import { requireUser } from '@/server/auth';
 import { ago, money } from '@/lib/money';
 import {
@@ -25,13 +26,16 @@ export const metadata: Metadata = { title: 'Find work' };
 export default async function Jobs({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; match?: string }>;
+  searchParams: Promise<{ q?: string; match?: string; category?: string }>;
 }) {
   const user = await requireUser();
   if (user.role !== 'FREELANCER') redirect('/talent');
 
-  const { q, match } = await searchParams;
+  const { q, match, category } = await searchParams;
   const term = q?.trim();
+  // Only a category from the taxonomy: an arbitrary string would silently
+  // match nothing and look like an empty board rather than a bad filter.
+  const chosen = CATEGORIES.includes(category as never) ? category : undefined;
   const floor = MATCH_FLOORS.includes(Number(match) as never)
     ? Number(match)
     : DEFAULT_MATCH_FLOOR;
@@ -44,6 +48,7 @@ export default async function Jobs({
     db.job.findMany({
       where: {
         status: 'OPEN',
+        ...(chosen ? { category: chosen } : {}),
         ...(term
           ? {
             OR: [
@@ -58,7 +63,8 @@ export default async function Jobs({
       take: 200,
       select: {
         id: true, title: true, description: true, category: true,
-        skills: true, budgetCents: true, proposalsCount: true, createdAt: true,
+        skills: true, budgetCents: true, durationDays: true,
+        proposalsCount: true, createdAt: true,
         owner: { select: { displayName: true, username: true } },
         challenge: { select: { mode: true } },
         _count: { select: { milestones: true } },
@@ -101,6 +107,13 @@ export default async function Jobs({
             className="min-h-[44px] w-full rounded-md border border-border-strong bg-surface pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal" />
         </div>
         <div className="flex items-center gap-2">
+          <label htmlFor="category" className="sr-only">Category</label>
+          <select id="category" name="category" defaultValue={chosen ?? ''}
+            className="min-h-[44px] rounded-md border border-border-strong bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal">
+            <option value="">Every category</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
           <label htmlFor="match" className="sr-only">Minimum match</label>
           <div className="relative">
             <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
@@ -127,7 +140,9 @@ export default async function Jobs({
             ? `${hidden} open ${hidden === 1 ? 'job is' : 'jobs are'} below your match threshold. `
               + 'Widen it above, or add skills to your profile so more work qualifies.'
             : 'New postings appear here the moment a verified client publishes one.'}
-          cta={hidden > 0 ? { href: '/jobs?match=0', label: 'Show everything' } : undefined} />
+          cta={hidden > 0 || chosen
+            ? { href: '/jobs?match=0', label: 'Show everything' }
+            : undefined} />
       ) : (
         <>
           <p className="mb-3 text-sm text-ink-muted">
@@ -148,9 +163,10 @@ export default async function Jobs({
                     </div>
                     <p className="mt-1 text-xs text-ink-muted">
                       {job.category} · posted {ago(job.createdAt)} by {job.owner.displayName}
-                      {' · '}{job.proposalsCount} {job.proposalsCount === 1 ? 'bid' : 'bids'}
+                      {' · '}{job.proposalsCount} {job.proposalsCount === 1 ? 'proposal' : 'proposals'}
                       {job._count.milestones > 0
                         && ` · ${job._count.milestones} milestones`}
+                      {job.durationDays && ` · about ${job.durationDays} days`}
                     </p>
                     <p className="mt-2.5 line-clamp-2 text-sm text-ink-muted">
                       {job.description}

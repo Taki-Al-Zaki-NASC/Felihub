@@ -151,6 +151,9 @@ model Job {
   category      String
   skills        String[]
   budgetCents   Int?
+  // Expected calendar duration, as advertised by the client. Distinct from a
+  // proposal's `timelineDays`, which is what a freelancer offers back.
+  durationDays  Int?
   status        JobStatus @default(OPEN)
 
   hiredProposalId String? @unique

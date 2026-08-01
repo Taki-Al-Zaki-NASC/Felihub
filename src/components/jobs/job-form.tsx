@@ -59,6 +59,11 @@ export function JobForm() {
         hint="The total. You fund it one milestone at a time, not all at once."
         error={fieldError('budget')} />
 
+      <Field label="Expected duration" name="durationDays" inputMode="numeric"
+        placeholder="30"
+        hint="Calendar days you expect it to take. Optional, but freelancers filter on it."
+        error={fieldError('durationDays')} />
+
       <MilestoneEditor budget={budget} error={fieldError('milestones')} />
 
       <Submit />
