@@ -64,7 +64,7 @@ export default async function Onboarding() {
             headline: profile?.headline ?? '',
             bio: profile?.bio ?? '',
             location: profile?.location ?? '',
-            skills: profile?.skills.join(', ') ?? '',
+            skills: profile?.skills ?? [],
             hourlyRate: profile?.hourlyRateCents
               ? money(profile.hourlyRateCents)
               : '',

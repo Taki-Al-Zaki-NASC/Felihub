@@ -8,6 +8,8 @@ import { Badge, Card, CardHeader, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProfileForm } from '@/components/profile/profile-form';
 import { AvatarUpload } from '@/components/profile/avatar-upload';
+import { ExperienceEditor } from '@/components/profile/experience-editor';
+import { parseExperience } from '@/lib/experience';
 import { signOutAction } from '@/server/actions/auth';
 
 export const metadata: Metadata = { title: 'Settings' };
@@ -28,7 +30,7 @@ export default async function Settings() {
       where: { userId: user.id },
       select: {
         headline: true, bio: true, location: true, skills: true,
-        hourlyRateCents: true, portfolioUrl: true,
+        hourlyRateCents: true, portfolioUrl: true, experience: true,
       },
     }),
   ]);
@@ -96,11 +98,19 @@ export default async function Settings() {
               headline: profile?.headline ?? '',
               bio: profile?.bio ?? '',
               location: profile?.location ?? '',
-              skills: profile?.skills.join(', ') ?? '',
+              skills: profile?.skills ?? [],
               hourlyRate: profile?.hourlyRateCents ? money(profile.hourlyRateCents) : '',
               portfolioUrl: profile?.portfolioUrl ?? '',
             }}
           />
+        </div>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader title="Work experience"
+          description="Past roles, shown on your public profile. The fastest way to convince someone you have done this before." />
+        <div className="p-5">
+          <ExperienceEditor initial={parseExperience(profile?.experience)} />
         </div>
       </Card>
 

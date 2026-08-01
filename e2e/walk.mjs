@@ -36,6 +36,26 @@ const note = (step, detail) => {
 const ok = (step) => console.log(`  ✓ ${step}`);
 const body = (page) => page.locator('body').innerText();
 
+/**
+ * A page that is wider than the window has escaped its container, and on a
+ * phone that makes everything unusable — every fixed header slides, and the
+ * user scrolls sideways to read one line. It is caused by content with no
+ * break opportunity: a long unbroken string, a wide table, an image without a
+ * max width. The profile below is deliberately given such a string.
+ */
+async function noOverflow(page, label) {
+  const { doc, win } = await page.evaluate(() => ({
+    doc: document.documentElement.scrollWidth,
+    win: window.innerWidth,
+  }));
+  if (doc - win > 2) note(label, `page is ${doc - win}px wider than the ${win}px viewport`);
+}
+
+/** Text with no spaces in it — the thing users actually type that breaks
+ *  layouts. Kept in the walk so a regression is caught, not reported. */
+const UNBREAKABLE =
+  'rrrrrrrrrrrrrrrrrrrrrrrrrrwwwwwwwwwwwwwwwwwwwweeeeeeeeeeeeeeeeeeezar'.repeat(4);
+
 /** Anything the browser reports is a failure, not noise. A 500 or an uncaught
  *  exception on a page nobody asserted against is still a broken page. */
 function watch(page, label) {
@@ -77,7 +97,7 @@ async function onboard(page, who, isFreelancer) {
       : 'Head of Product at a logistics startup');
   await page.getByLabel('About').fill(
     'A profile written during an end-to-end walk of the product, long enough '
-    + 'to satisfy the minimum length the form asks for.');
+    + `to satisfy the minimum length the form asks for. ${UNBREAKABLE}`);
   await page.getByLabel('Location').fill('Dhaka, Bangladesh');
   await page.getByLabel(isFreelancer ? 'Skills' : 'What you hire for')
     .fill('Flutter, TypeScript');
@@ -139,6 +159,7 @@ if (!/Posting balance/i.test(text)) note('client dashboard', 'no posting balance
 for (const path of ['/talent', '/contracts', '/wallet', '/settings', '/messages', '/notifications']) {
   await c.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
   if (/Something broke|Application error/i.test(await body(c))) note(`client ${path}`, 'crashed');
+  await noOverflow(c, `client ${path}`);
 }
 ok('client visited every nav destination');
 

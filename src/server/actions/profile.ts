@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
 import { parseMoney } from '@/lib/money';
+import { experienceSchema } from '@/lib/experience';
 
 export interface FormResult {
   error?: string;
@@ -112,5 +113,47 @@ export async function saveProfileAction(
   // gates are one flow, and stopping between them is how v1 left accounts
   // half-created.
   if (!wasOnboarded) redirect('/verify');
+  return { ok: true };
+}
+
+/**
+ * Work history.
+ *
+ * A separate action from the rest of the profile because it is a separate
+ * form: adding a role should not risk what is typed in the bio, and a
+ * validation failure in one should not reject the other.
+ */
+export async function saveExperienceAction(
+  _prev: FormResult | null,
+  form: FormData,
+): Promise<FormResult> {
+  const user = await requireUser();
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(form.get('experience') ?? '[]'));
+  } catch {
+    return { error: 'That could not be read. Reload the page and try again.' };
+  }
+
+  const parsed = experienceSchema.safeParse(raw);
+  if (!parsed.success) {
+    // Key errors by row index so the editor can put each one under its own
+    // card rather than showing one message for the whole list.
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const row = String(issue.path[0] ?? 'form');
+      fieldErrors[row] ??= issue.message;
+    }
+    return { fieldErrors };
+  }
+
+  await db.profile.update({
+    where: { userId: user.id },
+    data: { experience: parsed.data },
+  });
+
+  revalidatePath('/settings');
+  revalidatePath(`/profile/${user.username}`);
   return { ok: true };
 }

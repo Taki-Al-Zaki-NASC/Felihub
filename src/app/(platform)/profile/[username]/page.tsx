@@ -8,6 +8,7 @@ import { ago, money } from '@/lib/money';
 import { Badge, Card, CardHeader, PageHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
+import { parseExperience } from '@/lib/experience';
 
 export async function generateMetadata({
   params,
@@ -212,28 +213,4 @@ export default async function Profile({
       </Card>
     </div>
   );
-}
-
-interface ExperienceEntry {
-  title: string;
-  organisation: string;
-  period?: string;
-  summary?: string;
-}
-
-/** `Profile.experience` is Json, so it is whatever was last written. Read it
- *  defensively rather than trusting the column's shape. */
-function parseExperience(raw: unknown): ExperienceEntry[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const e = item as Record<string, unknown>;
-    if (typeof e.title !== 'string' || typeof e.organisation !== 'string') return [];
-    return [{
-      title: e.title,
-      organisation: e.organisation,
-      period: typeof e.period === 'string' ? e.period : undefined,
-      summary: typeof e.summary === 'string' ? e.summary : undefined,
-    }];
-  });
 }

@@ -4,7 +4,27 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-backdrop text-ink font-sans antialiased; }
+
+  body {
+    @apply bg-backdrop text-ink font-sans antialiased;
+
+    /* People type things like a 400-character run of "rrrrwwwweeee". With no
+       space in it, that is one word, and a word with no break opportunity
+       escapes its container and stretches the whole page sideways — on every
+       screen that renders it, not just the one it was typed on.
+
+       `anywhere` rather than `break-word`: both break the overflowing word,
+       but only `anywhere` also shrinks the element's min-content width, which
+       is what stops a flex or grid child from being forced wide by its text.
+       Ordinary prose is unaffected — it still breaks at spaces first. */
+    overflow-wrap: anywhere;
+  }
+
+  /* Belt and braces. If some future element does manage to overflow, the page
+     scrolls it rather than the document: a body that scrolls sideways breaks
+     every fixed header and makes a phone unusable. */
+  html { overflow-x: hidden; }
+
   /* 16px on phones: anything smaller makes iOS Safari zoom on focus. */
   input, textarea, select { @apply text-base sm:text-sm; }
 }

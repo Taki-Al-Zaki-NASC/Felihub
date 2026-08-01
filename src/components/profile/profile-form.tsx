@@ -5,14 +5,23 @@ import { useFormStatus } from 'react-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
+import { TagInput } from '@/components/ui/tag-input';
 import { saveProfileAction, type FormResult } from '@/server/actions/profile';
+
+/** A nudge, not a taxonomy — the field accepts anything typed. It exists so
+ *  the common skills are spelled the same way across profiles, which is what
+ *  makes search find them. */
+const SKILL_SUGGESTIONS = [
+  'Flutter', 'React', 'TypeScript', 'Node.js', 'Python', 'Figma',
+  'UI Design', 'Copywriting', 'SEO', 'Firebase', 'PostgreSQL', 'Android',
+] as const;
 
 export interface ProfileDefaults {
   displayName: string;
   headline: string;
   bio: string;
   location: string;
-  skills: string;
+  skills: string[];
   hourlyRate: string;
   portfolioUrl: string;
 }
@@ -67,12 +76,15 @@ export function ProfileForm({
       <Field label="Location" name="location" defaultValue={defaults.location}
         placeholder="Dhaka, Bangladesh" error={fieldError('location')} />
 
-      <Field
+      <TagInput
         label={isFreelancer ? 'Skills' : 'What you hire for'}
         name="skills"
         defaultValue={defaults.skills}
-        placeholder="Flutter, TypeScript, Firebase"
-        hint="Comma separated."
+        placeholder="Flutter"
+        hint={isFreelancer
+          ? 'Type a skill and press Enter. These are exactly what clients search on.'
+          : 'Type a skill and press Enter, so freelancers know what you need.'}
+        suggestions={SKILL_SUGGESTIONS}
         error={fieldError('skills')} />
 
       {isFreelancer && (

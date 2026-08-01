@@ -4,9 +4,17 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextArea } from '@/components/ui/field';
+import { TagInput } from '@/components/ui/tag-input';
 import { CATEGORIES } from '@/lib/categories';
 import { createJobAction } from '@/server/actions/jobs';
 import type { FormResult } from '@/server/actions/profile';
+
+/** Same list the profile form offers, so a job's skills and a freelancer's
+ *  skills are spelled the same way and actually match. */
+const SKILL_SUGGESTIONS = [
+  'Flutter', 'React', 'TypeScript', 'Node.js', 'Python', 'Figma',
+  'UI Design', 'Copywriting', 'SEO', 'Firebase', 'PostgreSQL', 'Android',
+] as const;
 
 export function JobForm() {
   const [state, action] = useActionState<FormResult | null, FormData>(
@@ -42,9 +50,10 @@ export function JobForm() {
         hint="Detail here is what separates useful bids from guesses."
         error={fieldError('description')} />
 
-      <Field label="Skills" name="skills"
-        placeholder="Flutter, Firebase, TypeScript"
-        hint="Comma separated. These are what freelancers search on."
+      <TagInput label="Skills needed" name="skills"
+        placeholder="Flutter"
+        hint="Type a skill and press Enter. These are what freelancers search on."
+        suggestions={SKILL_SUGGESTIONS}
         error={fieldError('skills')} />
 
       <Field label="Budget" name="budget" inputMode="decimal"
