@@ -13,6 +13,7 @@
  *   seed-ai-jobs.ts      applied AI and PyTorch work, and the two firms posting it
  *   seed-freelancers.ts  the people, and their live bids
  *   seed-history.ts      completed contracts, each with a review
+ *   seed-startups.ts     founders raising, and who backed them
  *   seed-types.ts        the shapes all of them share
  *
  * It is safe to re-run. Everything is written against a deterministic key, so
@@ -37,6 +38,7 @@ import type { SeedClient, SeedFreelancer, SeedJob } from './seed-types';
 import { AI_CLIENTS, AI_JOBS } from './seed-ai-jobs';
 import { BIDS, FREELANCERS } from './seed-freelancers';
 import { COMPLETED_JOBS } from './seed-history';
+import { FOUNDERS, RAISES } from './seed-startups';
 
 const db = new PrismaClient();
 
@@ -492,6 +494,48 @@ function validate() {
     if (!active) problems.push(`freelancer ${person.key} has neither a bid nor a contract`);
   }
 
+  // Raises follow the same rule jobs do: the breakdown must equal the goal.
+  const founderKeys = new Set(FOUNDERS.map((f) => f.key));
+  const backerKeys = new Set([
+    ...FREELANCERS.map((f) => f.key), ...CLIENTS.map((c) => c.key),
+  ]);
+  for (const raise of RAISES) {
+    checkSkills(`raise "${raise.key}"`, []);
+    if (!founderKeys.has(raise.founder)) {
+      problems.push(`raise "${raise.key}" has unknown founder "${raise.founder}"`);
+    }
+    const total = raise.useOfFunds.reduce((t, l) => t + l.amountCents, 0);
+    if (total !== raise.goalCents) {
+      problems.push(
+        `raise "${raise.key}" use-of-funds totals ${total} but the goal is ${raise.goalCents}`,
+      );
+    }
+    const seenBackers = new Set<string>();
+    for (const b of raise.backers) {
+      if (!backerKeys.has(b.who)) {
+        problems.push(`raise "${raise.key}" is backed by unknown account "${b.who}"`);
+      }
+      if (b.who === raise.founder) {
+        problems.push(`raise "${raise.key}" is backed by its own founder`);
+      }
+      if (seenBackers.has(b.who)) {
+        problems.push(`"${b.who}" backs "${raise.key}" twice`);
+      }
+      seenBackers.add(b.who);
+    }
+    // A closed raise settles on the first read. Whether it reads as funded or
+    // expired is decided by these numbers, so they should be deliberate.
+    const raised = raise.backers.reduce((t, b) => t + b.amountCents, 0);
+    if (raise.deadlineDays < 0 && raised < raise.goalCents) {
+      problems.push(
+        `raise "${raise.key}" has closed and is under goal — it will settle as `
+        + 'EXPIRED and refund every sample backer, which is probably not what '
+        + 'the fixture meant to show',
+      );
+    }
+  }
+  for (const founder of FOUNDERS) checkSkills(`founder ${founder.key}`, founder.skills);
+
   if (problems.length > 0) {
     throw new Error(`Seed data is inconsistent:\n  - ${problems.join('\n  - ')}`);
   }
@@ -716,6 +760,95 @@ async function seedContract(job: SeedJob) {
 }
 
 /**
+ * A founder, and their raise, and the people who backed it.
+ *
+ * Pledges are real rows and `raisedCents` is their sum, so the progress bar on
+ * a sample raise is arithmetic rather than a number somebody typed. Backers
+ * are the same sample freelancers and clients who appear elsewhere — which is
+ * the point of putting fundraising on this marketplace rather than beside it.
+ */
+async function seedFounder(f: (typeof FOUNDERS)[number]) {
+  const user = await db.user.upsert({
+    where: { email: email(f.key) },
+    create: {
+      email: email(f.key),
+      username: `${SEED_PREFIX}${f.key}`,
+      displayName: f.displayName,
+      role: 'STARTUP' as Role,
+      passwordHash: null,
+      idSubmitted: true,
+      depositPaid: true,
+      depositCents: 0,
+      depositKind: 'POSTING_BALANCE',
+      kycStage: 'VERIFIED',
+      createdAt: daysAgo(joinedDaysAgo(f.key)),
+    },
+    update: { displayName: f.displayName, createdAt: daysAgo(joinedDaysAgo(f.key)) },
+    select: { id: true },
+  });
+  ids.set(f.key, user.id);
+
+  const profile = {
+    headline: f.headline, bio: f.bio, location: f.location,
+    category: f.category, skills: f.skills, verified: true,
+  };
+  await db.profile.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, ...profile },
+    update: profile,
+  });
+}
+
+async function seedRaise(r: (typeof RAISES)[number]) {
+  const id = `${SEED_PREFIX}raise-${r.key}`;
+  const raised = r.backers.reduce((t, b) => t + b.amountCents, 0);
+  const closed = r.deadlineDays < 0;
+
+  const shared = {
+    founderId: userId(r.founder),
+    title: r.title,
+    summary: r.summary,
+    category: r.category,
+    stage: r.stage,
+    traction: r.traction,
+    websiteUrl: r.websiteUrl ?? null,
+    useOfFunds: r.useOfFunds,
+    goalCents: r.goalCents,
+    raisedCents: raised,
+    backersCount: r.backers.length,
+    minPledgeCents: 1_000,
+    deadline: daysAgo(-r.deadlineDays),
+    // A closed raise is written as already settled rather than left OPEN for
+    // the first page view to settle: settling would move sample money into a
+    // sample wallet on somebody's first visit, which is a surprising thing for
+    // reading a page to do.
+    status: closed ? ('FUNDED' as const) : ('OPEN' as const),
+    settledAt: closed ? daysAgo(-r.deadlineDays) : null,
+    createdAt: daysAgo(Math.max(3, 40 - r.deadlineDays)),
+  };
+
+  await db.raise.upsert({ where: { id }, create: { id, ...shared }, update: shared });
+
+  for (const b of r.backers) {
+    const pledgeId = `${SEED_PREFIX}pledge-${r.key}-${b.who}`;
+    const pledge = {
+      raiseId: id,
+      backerId: userId(b.who),
+      amountCents: b.amountCents,
+      anonymous: b.anonymous ?? false,
+      status: closed ? ('RELEASED' as const) : ('HELD' as const),
+      settledAt: closed ? daysAgo(-r.deadlineDays) : null,
+      createdAt: daysAgo(Math.max(1, 30 - r.deadlineDays - (hash(b.who) % 20))),
+    };
+    await db.pledge.upsert({
+      where: { id: pledgeId },
+      create: { id: pledgeId, ...pledge },
+      update: pledge,
+    });
+  }
+}
+
+/**
  * Counters, recomputed from the rows that justify them.
  *
  * `Job.proposalsCount`, `Profile.ratingAvg` and `User.totalEarnedCents` are
@@ -840,6 +973,13 @@ async function main() {
   for (const job of COMPLETED_JOBS) {
     await seedContract(job);
   }
+  for (const founder of FOUNDERS) {
+    await seedFounder(founder);
+    console.log(`  founder     ${founder.displayName}`);
+  }
+  for (const raise of RAISES) {
+    await seedRaise(raise);
+  }
   await reconcile();
 
   const byCategory = new Map<string, number>();
@@ -850,9 +990,13 @@ async function main() {
   for (const [category, n] of [...byCategory].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${n}  ${category}`);
   }
+  const pledges = RAISES.reduce((t, r) => t + r.backers.length, 0);
   console.log(
     `\n${FREELANCERS.length} freelancers · ${BIDS.length} live bids · `
     + `${COMPLETED_JOBS.length} completed contracts with reviews`,
+  );
+  console.log(
+    `${FOUNDERS.length} founders · ${RAISES.length} raises · ${pledges} pledges`,
   );
 }
 

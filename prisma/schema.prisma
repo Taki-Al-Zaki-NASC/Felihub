@@ -68,6 +68,22 @@ enum LedgerKind {
   GATEWAY_FEE
   PAYOUT
   REFUND
+  PLEDGE
+  PLEDGE_RELEASE
+}
+
+enum RaiseStatus {
+  DRAFT
+  OPEN
+  FUNDED    // hit its goal; the money has moved to the founder
+  EXPIRED   // deadline passed under goal; every pledge refunded
+  CANCELLED // withdrawn by the founder, which also refunds
+}
+
+enum PledgeStatus {
+  HELD      // committed, sitting in escrow, not the founder's yet
+  RELEASED  // the raise succeeded and the money moved
+  REFUNDED  // the raise failed, expired or was cancelled
 }
 
 model User {
@@ -102,6 +118,8 @@ model User {
   paymentIntents PaymentIntent[]
   reviewsWritten Review[]    @relation("ReviewAuthor")
   reviewsAbout   Review[]    @relation("ReviewSubject")
+  raises        Raise[]      @relation("RaiseFounder")
+  pledges       Pledge[]     @relation("PledgeBacker")
   memberships   ThreadMember[]
   messages      Message[]
   notifications Notification[]
@@ -372,6 +390,98 @@ model Review {
   // brigading.
   @@unique([jobId, authorId])
   @@index([subjectId, createdAt])
+}
+
+/**
+ * A startup asking the marketplace to fund it.
+ *
+ * All-or-nothing, deliberately. Pledges sit in escrow and reach the founder
+ * only if the goal is met by the deadline; otherwise every one is refunded in
+ * full. Partial funding is how a backer ends up paying for a third of a thing
+ * that then does not get built, and the escrow this platform already runs for
+ * job milestones is exactly the mechanism that prevents it.
+ *
+ * **This is not equity.** Backers get no shares, no dividend and no claim on
+ * the company — see `src/server/services/raises.ts`. Selling a stake in a
+ * company to the public is a securities offering, regulated in every
+ * jurisdiction this operates in, and nothing in this schema is capable of
+ * representing one.
+ */
+model Raise {
+  id            String      @id @default(cuid())
+  founderId     String
+  founder       User        @relation("RaiseFounder", fields: [founderId], references: [id])
+
+  title         String
+  /** The pitch, in the founder's words. */
+  summary       String      @db.Text
+  category      String
+  /** "IDEA" | "PROTOTYPE" | "LAUNCHED" | "REVENUE" — how far along they are. */
+  stage         String
+  /** What the money is for, as a list of {label, amountCents}. Must sum to the
+   *  goal, the same rule job milestones follow. */
+  useOfFunds    Json
+  /** What exists today. Kept separate from the pitch so a reader can find the
+   *  facts without reading the ambition. */
+  traction      String?     @db.Text
+  websiteUrl    String?
+
+  goalCents     Int
+  /** Denormalised sum of HELD and RELEASED pledges. */
+  raisedCents   Int         @default(0)
+  backersCount  Int         @default(0)
+  minPledgeCents Int        @default(1000)
+  deadline      DateTime
+
+  status        RaiseStatus @default(OPEN)
+  settledAt     DateTime?
+
+  pledges       Pledge[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([status, deadline])
+  @@index([founderId])
+  @@index([category, status])
+}
+
+/**
+ * One backer's commitment.
+ *
+ * One per person per raise, so a backer's total is a single number they can
+ * see and change rather than a pile of rows nobody can reconcile.
+ */
+model Pledge {
+  id          String       @id @default(cuid())
+  raiseId     String
+  raise       Raise        @relation(fields: [raiseId], references: [id], onDelete: Cascade)
+  backerId    String
+  backer      User         @relation("PledgeBacker", fields: [backerId], references: [id])
+
+  amountCents Int
+  /**
+   * How much of it came out of the posting balance rather than the wallet.
+   *
+   * Recorded because a refund has to go back where the money came from. A
+   * client's posting balance is what funds escrow when they hire; refunding it
+   * into the wallet would leave them unable to hire with their own money and
+   * unable to explain where it went.
+   */
+  fromPostingCents Int      @default(0)
+  status      PledgeStatus @default(HELD)
+  /** A note to the founder. Readable by the founder and the backer, nobody
+   *  else — the same rule proposals follow. */
+  note        String?      @db.Text
+  /** Show the amount publicly, or only that somebody backed it. */
+  anonymous   Boolean      @default(false)
+
+  createdAt   DateTime     @default(now())
+  settledAt   DateTime?
+
+  @@unique([raiseId, backerId])
+  @@index([backerId, createdAt])
+  @@index([raiseId, status])
 }
 
 /**

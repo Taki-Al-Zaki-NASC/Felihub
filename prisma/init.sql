@@ -14,6 +14,7 @@
 
 -- CreateSchema
 -- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -35,7 +36,13 @@ CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID', 'FAILED');
 CREATE TYPE "DepositKind" AS ENUM ('TRUST_BOND', 'POSTING_BALANCE');
 
 -- CreateEnum
-CREATE TYPE "LedgerKind" AS ENUM ('DEPOSIT', 'ESCROW_HOLD', 'ESCROW_RELEASE', 'PLATFORM_FEE', 'GATEWAY_FEE', 'PAYOUT', 'REFUND');
+CREATE TYPE "LedgerKind" AS ENUM ('DEPOSIT', 'ESCROW_HOLD', 'ESCROW_RELEASE', 'PLATFORM_FEE', 'GATEWAY_FEE', 'PAYOUT', 'REFUND', 'PLEDGE', 'PLEDGE_RELEASE');
+
+-- CreateEnum
+CREATE TYPE "RaiseStatus" AS ENUM ('DRAFT', 'OPEN', 'FUNDED', 'EXPIRED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "PledgeStatus" AS ENUM ('HELD', 'RELEASED', 'REFUNDED');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -241,6 +248,45 @@ CREATE TABLE "Review" (
 );
 
 -- CreateTable
+CREATE TABLE "Raise" (
+    "id" TEXT NOT NULL,
+    "founderId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "stage" TEXT NOT NULL,
+    "useOfFunds" JSONB NOT NULL,
+    "traction" TEXT,
+    "websiteUrl" TEXT,
+    "goalCents" INTEGER NOT NULL,
+    "raisedCents" INTEGER NOT NULL DEFAULT 0,
+    "backersCount" INTEGER NOT NULL DEFAULT 0,
+    "minPledgeCents" INTEGER NOT NULL DEFAULT 1000,
+    "deadline" TIMESTAMP(3) NOT NULL,
+    "status" "RaiseStatus" NOT NULL DEFAULT 'OPEN',
+    "settledAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Raise_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Pledge" (
+    "id" TEXT NOT NULL,
+    "raiseId" TEXT NOT NULL,
+    "backerId" TEXT NOT NULL,
+    "amountCents" INTEGER NOT NULL,
+    "status" "PledgeStatus" NOT NULL DEFAULT 'HELD',
+    "note" TEXT,
+    "anonymous" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "settledAt" TIMESTAMP(3),
+
+    CONSTRAINT "Pledge_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ContentSignal" (
     "id" TEXT NOT NULL,
     "kind" TEXT NOT NULL,
@@ -347,6 +393,24 @@ CREATE INDEX "Review_subjectId_createdAt_idx" ON "Review"("subjectId", "createdA
 CREATE UNIQUE INDEX "Review_jobId_authorId_key" ON "Review"("jobId", "authorId");
 
 -- CreateIndex
+CREATE INDEX "Raise_status_deadline_idx" ON "Raise"("status", "deadline");
+
+-- CreateIndex
+CREATE INDEX "Raise_founderId_idx" ON "Raise"("founderId");
+
+-- CreateIndex
+CREATE INDEX "Raise_category_status_idx" ON "Raise"("category", "status");
+
+-- CreateIndex
+CREATE INDEX "Pledge_backerId_createdAt_idx" ON "Pledge"("backerId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Pledge_raiseId_status_idx" ON "Pledge"("raiseId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Pledge_raiseId_backerId_key" ON "Pledge"("raiseId", "backerId");
+
+-- CreateIndex
 CREATE INDEX "ContentSignal_band_idx" ON "ContentSignal"("band");
 
 -- CreateIndex
@@ -405,6 +469,15 @@ ALTER TABLE "Review" ADD CONSTRAINT "Review_authorId_fkey" FOREIGN KEY ("authorI
 
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Raise" ADD CONSTRAINT "Raise_founderId_fkey" FOREIGN KEY ("founderId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Pledge" ADD CONSTRAINT "Pledge_raiseId_fkey" FOREIGN KEY ("raiseId") REFERENCES "Raise"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Pledge" ADD CONSTRAINT "Pledge_backerId_fkey" FOREIGN KEY ("backerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

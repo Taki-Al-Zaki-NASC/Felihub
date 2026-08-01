@@ -1,7 +1,7 @@
 # Felicek v2
 
-Verified freelance marketplace. Full-stack TypeScript on Next.js, deployed on
-Vercel's free tier.
+Verified marketplace with three sides: hire someone, get hired, or back a
+founder. Full-stack TypeScript on Next.js, deployed on Vercel's free tier.
 
 **v1 (Firebase + Firestore) is preserved on the `v1-firebase` branch** and is
 still deployable. Nothing was lost in this rebuild.
@@ -61,7 +61,7 @@ npx prisma db push        # needs the repo checked out locally
 
 …or, with no local setup at all, paste **`prisma/init.sql`** into your
 provider's SQL editor (Supabase → SQL Editor → New query) and run it. That
-file is generated from `prisma/schema.prisma` and creates all 15 tables with
+file is generated from `prisma/schema.prisma` and creates all 17 tables with
 their enums, indexes and foreign keys.
 
 ### If the site feels slow
@@ -108,9 +108,10 @@ A marketplace with both sides of it filled in:
 | **9 verified freelancers** | with headlines, skills, languages, rates and work history |
 | **22 live bids** | so the board shows real proposal counts, not zeroes |
 | **13 completed contracts** | each with a review, which is where the ratings and earnings come from |
+| **3 founders raising** | 15 pledges from the sample clients and freelancers, so the progress bars are sums of real rows |
 
-The data is in `prisma/seed-ai-jobs.ts`, `seed-freelancers.ts` and
-`seed-history.ts`; `seed.ts` is only the writer.
+The data is in `prisma/seed-ai-jobs.ts`, `seed-freelancers.ts`,
+`seed-history.ts` and `seed-startups.ts`; `seed.ts` is only the writer.
 
 **Ratings are not declared, they are earned.** The profile page lists the
 actual `Review` rows next to the average, so a rating with no rows behind it
@@ -174,6 +175,11 @@ sign-up and sign-in say plainly what is missing rather than throwing.
 The public site and the full signed-in product are built and working:
 
 - **Marketing** — landing, how-it-works, pricing, about, 404 and error pages
+- **Startup fundraising** — `/startups`, public. A verified founder publishes
+  what they are building, what the money is for and a deadline; any verified
+  account can pledge. All-or-nothing: pledges sit in the same escrow as job
+  milestones and are refunded in full if the goal is missed. **No equity** —
+  see below
 - **Public job board** — `/browse` and `/browse/[id]`, readable with no
   account. Everything else in the product was behind the sign-in wall, which
   meant a visitor had to verify their identity before they could find out
@@ -230,6 +236,46 @@ Postgres inside the runner, uses it, and destroys it.
 
 **Socket.io cannot run on Vercel** — see the top of this file. Messaging works
 today on ordinary request/response; live delivery needs that decision.
+
+## Startup fundraising
+
+The third side of the same marketplace: the same accounts, the same identity
+checks and the same escrow, pointed at a founder who needs money rather than a
+contractor. A client or a freelancer already here can back one.
+
+```
+founder publishes  →  people pledge  →  deadline
+                                          ├─ goal met     → founder is paid, less 1%
+                                          └─ goal missed  → every pledge refunded in full
+```
+
+**A pledge buys no equity.** No shares, no dividend, no revenue share, no claim
+on the company, and nothing in `prisma/schema.prisma` is capable of
+representing one. Selling a stake in a company to the public is a securities
+offering — Reg CF and a registered funding portal in the US, an FCA-authorised
+platform in the UK, BSEC's own regime in Bangladesh — and running one without
+authorisation is a criminal offence in most of them. Doing equity properly
+starts with a licence and a lawyer, not with a column called `equityPct`. The
+constraint is stated on the listing, on every raise, and on the publish form,
+because somebody about to send money should not have to infer it.
+
+**All-or-nothing**, because partial funding is how a backer pays for a third of
+a thing that then never gets built. The money leaves the backer's account when
+they pledge rather than when the raise closes: a progress bar made of unfunded
+promises tells a backer nothing.
+
+Two details worth not undoing:
+
+- **Pledges draw from the wallet first, then the posting balance.** Taking them
+  from the wallet alone was a dead end — a client has no wallet balance until
+  they have been paid for something, and clients are half the people this is
+  for. `Pledge.fromPostingCents` records the split so a refund goes back where
+  it came from; refunding a client's posting balance into their wallet would
+  leave them unable to hire with their own money.
+- **Raises settle when somebody reads the page.** There is no cron on Vercel's
+  free tier, and a backer's money must not sit in escrow because a scheduled
+  job nobody set up did not run. `settleDueRaises` is idempotent and only ever
+  moves rows out of `OPEN`.
 
 ## Authorship: how a piece of writing got here
 

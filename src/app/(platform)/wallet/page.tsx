@@ -107,6 +107,7 @@ function label(kind: LedgerKind): string {
     DEPOSIT: 'deposit', ESCROW_HOLD: 'escrow', ESCROW_RELEASE: 'release',
     PLATFORM_FEE: 'felicek fee', GATEWAY_FEE: 'card fee',
     PAYOUT: 'payout', REFUND: 'refund',
+    PLEDGE: 'pledge held', PLEDGE_RELEASE: 'raise funded',
   }[kind];
 }
 

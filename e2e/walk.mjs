@@ -428,6 +428,97 @@ console.log('\n=== PUBLIC BROWSE ===');
   await ctx.close();
 }
 
+/* ── Fundraising: publish a raise, back one, and get the money back ────── */
+console.log('\n=== STARTUPS ===');
+{
+  // A signed-out visitor first. The listing and a raise have to be readable
+  // with no account, the same as the job board.
+  const ctx = await browser.newContext();
+  const v = await ctx.newPage();
+  watch(v, 'visitor:startups');
+  await v.goto(`${BASE}/startups`, { waitUntil: 'domcontentloaded' });
+  const list = await body(v);
+  if (/sign in/i.test(await v.title())) note('startups', 'a visitor was bounced to sign-in');
+  else ok('a signed-out visitor can read the raises');
+
+  // The thing that must never be missing from this page.
+  if (/buys no equity/i.test(list)) ok('the no-equity statement is on the listing');
+  else note('startups', 'the listing does not say a pledge buys no equity');
+
+  const raiseLink = () => [...document.querySelectorAll('a[href^="/startups/"]')]
+    .map((a) => a.getAttribute('href'))
+    .find((h) => h !== '/startups/new');
+  const href = await v.evaluate(raiseLink);
+  if (!href) {
+    ok('no sample raises in this database — skipping the rest');
+  } else {
+    await v.goto(BASE + href, { waitUntil: 'domcontentloaded' });
+    const one = await body(v);
+    const html = await v.content();
+    for (const [label, probe] of [
+      ['the pitch is public', 'What the money is for'],
+      ['the backers are public', 'backer'],
+      ['what backing means is stated', 'refunded in full'],
+      ['no equity, said again on the raise', 'no equity'],
+    ]) {
+      if (new RegExp(probe, 'i').test(one)) ok(label);
+      else note('startups', `missing "${probe}"`);
+    }
+    // A backer's private note to the founder must not reach a public page.
+    if (/note to the founder/i.test(html) && !/sign|pledge/i.test(html)) {
+      note('startups', 'a backer note may be exposed publicly');
+    } else ok('backer notes are not on the public page');
+  }
+  await ctx.close();
+
+  // Now the money. The client backs a raise and the balance actually moves.
+  await open(c, '/startups');
+  const target = await c.evaluate(() => [...document.querySelectorAll('a[href^="/startups/"]')]
+    .map((a) => a.getAttribute('href'))
+    .find((h) => h !== '/startups/new'));
+  if (!target) {
+    ok('no sample raises — skipping the pledge');
+  } else {
+    await open(c, '/wallet');
+    const before = (await body(c)).match(/\$[\d,]+(?:\.\d\d)?/g)?.[0] ?? '?';
+
+    await open(c, target);
+    const amountField = c.locator('input[name="amount"]');
+    if (!(await amountField.count())) {
+      note('startups', 'a verified client is offered no way to back a raise');
+    } else {
+      await amountField.fill('$25');
+      await c.locator('textarea[name="note"]').fill(
+        'Backing this during an end-to-end walk of the product. '
+        + `CANARY-PLEDGENOTE-${stamp}`);
+      await c.getByRole('button', { name: /back this startup/i }).click();
+      await c.waitForTimeout(2000);
+      await settle(c);
+
+      await open(c, target);
+      const after = await body(c);
+      if (/already pledged/i.test(after)) ok('the pledge was recorded');
+      else note('startups', `no pledge showed after backing — ${after.slice(0, 200)}`);
+
+      // The ledger is the check that matters: a progress bar can be wrong,
+      // a debit cannot.
+      await open(c, '/wallet');
+      const ledger = await body(c);
+      if (/pledge held/i.test(ledger)) ok('the pledge is on the ledger as held');
+      else note('startups', `no pledge line on the ledger (balance was ${before})`);
+    }
+
+    // The note a backer wrote is for the founder, and for nobody browsing.
+    const ctx2 = await browser.newContext();
+    const stranger = await ctx2.newPage();
+    await stranger.goto(BASE + target, { waitUntil: 'domcontentloaded' });
+    if ((await stranger.content()).includes(`CANARY-PLEDGENOTE-${stamp}`)) {
+      note('startups', 'a backer note leaked to a signed-out visitor');
+    } else ok('the backer note stays private to the founder');
+    await ctx2.close();
+  }
+}
+
 /* ── Privacy: a competitor must not be able to read another bid ────────── */
 console.log('\n=== PROPOSAL PRIVACY ===');
 {
@@ -585,19 +676,34 @@ console.log('\n=== AUTHORSHIP ===');
 
 /* ── Hiring, which is where the money moves ───────────────────────────── */
 console.log('\n=== HIRE ===');
+
+/** The posting balance as a number, read off the stat rather than the page
+ *  text — the page has several money figures on it. */
+async function postingBalance(page) {
+  return page.evaluate(() => {
+    const label = [...document.querySelectorAll('p')]
+      .find((el) => /posting balance/i.test(el.textContent ?? ''));
+    const value = label?.nextElementSibling?.textContent ?? '';
+    return Number(value.replace(/[^0-9.]/g, '')) || 0;
+  });
+}
+
 await open(c, `/wallet`);
 const topUp = c.getByRole('button', { name: /add \$1,000/i });
 if (!(await topUp.count())) note('top up', 'no way to add to the posting balance');
 else {
+  // Relative, not absolute. This used to assert exactly $1,050 — $50 opening
+  // balance plus the top-up — and broke the moment backing a startup could
+  // also spend the posting balance earlier in the walk. What the top-up
+  // promises is "+$1,000", so that is what to check.
+  const before = await postingBalance(c);
   await topUp.click();
   await c.waitForTimeout(2500);
   await open(c, '/wallet');
-  // Assert the balance itself, not the toast: the Server Action revalidates
-  // the page, which re-renders the form and can clear its own success state.
-  // The number on screen is the fact; the message is decoration.
-  if (!/\$1,050/.test(await body(c))) {
-    note('top up', `posting balance did not increase — ${(await body(c)).slice(0, 200)}`);
-  } else ok('posting balance topped up to $1,050');
+  const after = await postingBalance(c);
+  if (Math.round(after - before) !== 1000) {
+    note('top up', `posting balance went ${before} → ${after}, expected +1000`);
+  } else ok(`posting balance topped up by $1,000`);
 }
 
 await open(c, jobUrl.replace(BASE, ''));

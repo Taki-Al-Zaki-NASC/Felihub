@@ -9,7 +9,11 @@ import { analyse, describe, type Authorship, type Band, type Provenance } from '
  * sending a bid, because this feature is context and the write is the point.
  */
 
-export type SignalKind = 'PROFILE_BIO' | 'JOB_DESCRIPTION' | 'PROPOSAL_NOTE';
+export type SignalKind =
+  | 'PROFILE_BIO'
+  | 'JOB_DESCRIPTION'
+  | 'PROPOSAL_NOTE'
+  | 'RAISE_SUMMARY';
 
 export interface StoredSignal {
   band: Band;

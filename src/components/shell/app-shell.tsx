@@ -6,7 +6,7 @@ import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import {
   Briefcase, FileText, Home, LayoutDashboard, Menu, MessageSquare,
-  Search, Settings, Users, Wallet, X,
+  Rocket, Search, Settings, Users, Wallet, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,9 @@ function navFor(role: SessionUser['role']): NavItem[] {
       ? { href: '/talent', label: 'Find talent', icon: Users }
       : { href: '/jobs', label: 'Find work', icon: Briefcase },
     { href: '/contracts', label: 'Contracts', icon: FileText },
+    // Everyone, whatever their role: a freelancer backing a founder is as
+    // much the point of this as a founder raising.
+    { href: '/startups', label: 'Startups', icon: Rocket },
     { href: '/messages', label: 'Messages', icon: MessageSquare },
     { href: '/wallet', label: 'Wallet', icon: Wallet },
     { href: '/settings', label: 'Settings', icon: Settings },

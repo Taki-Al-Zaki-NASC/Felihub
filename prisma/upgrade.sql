@@ -85,3 +85,74 @@ CREATE TABLE IF NOT EXISTS "ContentSignal" (
 CREATE UNIQUE INDEX IF NOT EXISTS "ContentSignal_kind_refId_key"
   ON "ContentSignal"("kind", "refId");
 CREATE INDEX IF NOT EXISTS "ContentSignal_band_idx" ON "ContentSignal"("band");
+
+-- ── Startup fundraising ──────────────────────────────────────────────────
+-- All-or-nothing raises, with pledges held in the same escrow that holds job
+-- milestones. A pledge buys no equity — see src/server/services/raises.ts for
+-- why that is a deliberate limit and not a missing feature.
+DO $$ BEGIN
+  ALTER TYPE "LedgerKind" ADD VALUE IF NOT EXISTS 'PLEDGE';
+  ALTER TYPE "LedgerKind" ADD VALUE IF NOT EXISTS 'PLEDGE_RELEASE';
+EXCEPTION WHEN undefined_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "RaiseStatus" AS ENUM ('DRAFT','OPEN','FUNDED','EXPIRED','CANCELLED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "PledgeStatus" AS ENUM ('HELD','RELEASED','REFUNDED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS "Raise" (
+  "id"             TEXT NOT NULL,
+  "founderId"      TEXT NOT NULL,
+  "title"          TEXT NOT NULL,
+  "summary"        TEXT NOT NULL,
+  "category"       TEXT NOT NULL,
+  "stage"          TEXT NOT NULL,
+  "useOfFunds"     JSONB NOT NULL,
+  "traction"       TEXT,
+  "websiteUrl"     TEXT,
+  "goalCents"      INTEGER NOT NULL,
+  "raisedCents"    INTEGER NOT NULL DEFAULT 0,
+  "backersCount"   INTEGER NOT NULL DEFAULT 0,
+  "minPledgeCents" INTEGER NOT NULL DEFAULT 1000,
+  "deadline"       TIMESTAMP(3) NOT NULL,
+  "status"         "RaiseStatus" NOT NULL DEFAULT 'OPEN',
+  "settledAt"      TIMESTAMP(3),
+  "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"      TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "Raise_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "Raise_status_deadline_idx" ON "Raise"("status","deadline");
+CREATE INDEX IF NOT EXISTS "Raise_founderId_idx" ON "Raise"("founderId");
+CREATE INDEX IF NOT EXISTS "Raise_category_status_idx" ON "Raise"("category","status");
+
+CREATE TABLE IF NOT EXISTS "Pledge" (
+  "id"          TEXT NOT NULL,
+  "raiseId"     TEXT NOT NULL,
+  "backerId"    TEXT NOT NULL,
+  "amountCents" INTEGER NOT NULL,
+  "status"      "PledgeStatus" NOT NULL DEFAULT 'HELD',
+  "note"        TEXT,
+  "anonymous"   BOOLEAN NOT NULL DEFAULT false,
+  "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "settledAt"   TIMESTAMP(3),
+  CONSTRAINT "Pledge_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Pledge_raiseId_backerId_key" ON "Pledge"("raiseId","backerId");
+CREATE INDEX IF NOT EXISTS "Pledge_backerId_createdAt_idx" ON "Pledge"("backerId","createdAt");
+CREATE INDEX IF NOT EXISTS "Pledge_raiseId_status_idx" ON "Pledge"("raiseId","status");
+
+DO $$ BEGIN
+  ALTER TABLE "Raise" ADD CONSTRAINT "Raise_founderId_fkey"
+    FOREIGN KEY ("founderId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "Pledge" ADD CONSTRAINT "Pledge_raiseId_fkey"
+    FOREIGN KEY ("raiseId") REFERENCES "Raise"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "Pledge" ADD CONSTRAINT "Pledge_backerId_fkey"
+    FOREIGN KEY ("backerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

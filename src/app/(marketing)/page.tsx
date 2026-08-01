@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { CATEGORIES, CATEGORY_BLURBS } from '@/lib/categories';
 
 export const metadata: Metadata = {
-  title: 'Hire verified freelancers, or find verified work',
+  title: 'Hire, work, or back a startup — all verified',
   description:
-    'Every account is identity-verified and deposit-backed before it can post '
-    + 'or bid. Escrow milestones, and a flat 1% fee shown separately from '
-    + 'payment processing.',
+    'Every account is identity-verified and deposit-backed before it can post, '
+    + 'bid or pledge. Escrow on both the milestones and the raises, and a flat '
+    + '1% fee shown separately from payment processing.',
 };
 
 const CLIENT_STEPS = [
@@ -28,6 +28,13 @@ const FREELANCER_STEPS = [
   ['Get paid per milestone', 'Escrow-funded before you start, released as you deliver.'],
 ] as const;
 
+const FUNDING_STEPS = [
+  ['Say what you are building', 'The pitch, what exists today, and what the money is for.'],
+  ['Account for the whole goal', 'The breakdown has to add up to it. The form will not take a raise where it does not.'],
+  ['Backers pledge into escrow', 'Their money is committed, not promised — and it is not yours yet.'],
+  ['All or nothing at the deadline', 'Hit the goal and it is paid out less 1%. Miss it and every pledge is refunded in full.'],
+] as const;
+
 export default function Home() {
   return (
     <>
@@ -37,39 +44,45 @@ export default function Home() {
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-tint px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-teal-deep">
               <BadgeCheck className="h-3.5 w-3.5" />
-              Verified before it can post or bid
+              Verified before it can post, bid or pledge
             </span>
             <h1 className="mt-5 font-serif text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.4rem]">
-              Hire people who are
-              <br className="hidden sm:block" /> actually who they say.
+              Hire it. Build it.
+              <br className="hidden sm:block" /> Or help fund it.
             </h1>
             <p className="mt-5 max-w-xl text-base text-ink-muted sm:text-lg">
-              Identity checks and a refundable deposit are required to join — on
-              both sides. Work is funded into escrow before it starts, and the
-              platform fee is a flat 1%, itemised separately from card
-              processing.
+              One verified account, three things to do with it: get work done,
+              get paid for work, or put money behind somebody building
+              something. Identity checks and a refundable deposit are required
+              to join — on every side. Money moves through escrow, and the
+              platform fee is a flat 1%.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            {/* Three, because there are now three things to do here and the
+                demand side is not the one to demote — a marketplace with no
+                clients has no work to browse. They wrap on a phone. */}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Button asChild size="lg">
                 <Link href="/sign-up?role=client">Post a job</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link href="/sign-up?role=freelancer">Find work</Link>
+                <Link href="/browse">Find work</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/startups">Back a startup</Link>
               </Button>
             </div>
             {/* Straight to the listings, no account. Asking someone to verify
                 their identity before they can find out whether there is any
                 work worth verifying for is a strange order to do it in. */}
-            <Link href="/browse"
-              className="mt-4 inline-flex min-h-[40px] items-center text-sm font-bold text-teal-deep hover:underline">
-              Or read the open projects first, no account needed →
-            </Link>
+            <p className="mt-4 text-sm text-ink-muted">
+              The work and the raises are both readable without an account.
+            </p>
 
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 rounded-lg border border-border bg-neutral-tint p-5">
               {[
                 ['1%', 'flat platform fee'],
-                ['$0', 'to browse or bid'],
+                ['$0', 'to browse, bid or back'],
                 ['100%', 'accounts verified'],
               ].map(([big, small]) => (
                 <div key={small}>
@@ -80,6 +93,9 @@ export default function Home() {
             </dl>
           </div>
 
+          {/* Three doors, not two. The startup side is the newest and it is
+              the reason the headline changed: somebody arriving with money to
+              put behind an idea had nowhere to go on this page. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <RoleCard
               tone="teal"
@@ -101,7 +117,18 @@ export default function Home() {
                 'Your challenge submissions stay private',
               ]}
               cta="Find work"
-              href="/sign-up?role=freelancer"
+              href="/browse"
+            />
+            <RoleCard
+              tone="amber"
+              title="I'm building something"
+              points={[
+                'Raise from clients and freelancers already here',
+                'All or nothing — pledges refund in full if you miss the goal',
+                'No equity, no shares: support for a specific piece of work',
+              ]}
+              cta="Raise or back"
+              href="/startups"
             />
           </div>
         </div>
@@ -135,9 +162,10 @@ export default function Home() {
       {/* How it works */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
         <h2 className="font-serif text-2xl font-semibold sm:text-3xl">How it works</h2>
-        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
+        <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-12">
           <Steps title="If you're hiring" steps={CLIENT_STEPS} tone="teal" />
           <Steps title="If you're freelancing" steps={FREELANCER_STEPS} tone="violet" />
+          <Steps title="If you're raising" steps={FUNDING_STEPS} tone="amber" />
         </div>
       </section>
 
@@ -172,8 +200,8 @@ export default function Home() {
             Start with a verified account.
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-white/70">
-            Browsing and bidding cost nothing. The deposit is yours — refundable
-            for freelancers, spendable into escrow for clients.
+            Browsing, bidding and backing cost nothing. The deposit is yours —
+            refundable for freelancers, spendable into escrow for everyone else.
           </p>
           <Button asChild size="lg" variant="primary" className="mt-8">
             <Link href="/sign-up">Create your account</Link>
@@ -185,16 +213,20 @@ export default function Home() {
 }
 
 function RoleCard({ tone, title, points, cta, href }: {
-  tone: 'teal' | 'violet';
+  tone: 'teal' | 'violet' | 'amber';
   title: string;
   points: readonly string[];
   cta: string;
   href: Route;
 }) {
-  const shell = tone === 'teal'
-    ? 'border-teal/30 bg-teal-tint'
-    : 'border-violet/30 bg-violet-tint';
-  const accent = tone === 'teal' ? 'text-teal-deep' : 'text-violet';
+  const shell = {
+    teal: 'border-teal/30 bg-teal-tint',
+    violet: 'border-violet/30 bg-violet-tint',
+    amber: 'border-amber/30 bg-amber-tint',
+  }[tone];
+  const accent = {
+    teal: 'text-teal-deep', violet: 'text-violet', amber: 'text-amber',
+  }[tone];
   return (
     <div className={`rounded-xl border p-5 ${shell}`}>
       <h2 className="font-serif text-lg font-semibold">{title}</h2>
@@ -219,9 +251,9 @@ function RoleCard({ tone, title, points, cta, href }: {
 function Steps({ title, steps, tone }: {
   title: string;
   steps: readonly (readonly [string, string])[];
-  tone: 'teal' | 'violet';
+  tone: 'teal' | 'violet' | 'amber';
 }) {
-  const chip = tone === 'teal' ? 'bg-teal' : 'bg-violet';
+  const chip = { teal: 'bg-teal', violet: 'bg-violet', amber: 'bg-amber' }[tone];
   return (
     <div>
       <h3 className="font-serif text-lg font-semibold">{title}</h3>

@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
  * and not a canvas-rendered SPA.
  */
 const NAV = [
-  { href: '/browse', label: 'Browse work' },
+  { href: '/browse', label: 'Find work' },
+  { href: '/startups', label: 'Back a startup' },
   { href: '/how-it-works#hiring', label: 'For hiring' },
   { href: '/how-it-works#freelancing', label: 'For freelancers' },
   { href: '/pricing', label: 'Pricing' },
@@ -83,6 +84,7 @@ export default function MarketingLayout({
             </div>
             <FooterCol title="Product" links={[
               ['/browse', 'Browse open work'],
+              ['/startups', 'Back a startup'],
               ['/how-it-works#hiring', 'For hiring'],
               ['/how-it-works#freelancing', 'For freelancers'],
               ['/pricing', 'Fees'],
