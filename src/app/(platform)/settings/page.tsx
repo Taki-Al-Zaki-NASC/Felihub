@@ -86,8 +86,8 @@ export default async function Settings() {
             ? 'This is what clients read in the talent directory before messaging you.'
             : 'Freelancers check who is hiring before they spend time on a proposal.'} />
         <div className="border-b border-border p-5">
-          <AvatarUpload image={account.image} displayName={user.displayName}
-            required={isFreelancer} />
+          <AvatarUpload username={user.username} displayName={user.displayName}
+            hasImage={Boolean(account.image)} required={isFreelancer} />
         </div>
         <div className="p-5">
           <ProfileForm

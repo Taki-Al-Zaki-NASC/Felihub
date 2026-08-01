@@ -45,7 +45,7 @@ export default async function Profile({
   const person = await db.user.findUnique({
     where: { username },
     select: {
-      id: true, username: true, displayName: true, role: true, image: true,
+      id: true, username: true, displayName: true, role: true,
       idSubmitted: true, depositPaid: true, kycStage: true, createdAt: true,
       totalEarnedCents: true,
       profile: {
@@ -94,7 +94,7 @@ export default async function Profile({
 
       <Card className="p-5">
         <div className="flex flex-wrap items-start gap-4">
-          <Avatar src={person.image} name={person.displayName} size={64} />
+          <Avatar username={person.username} name={person.displayName} size={64} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-serif text-lg font-semibold">{person.displayName}</h2>

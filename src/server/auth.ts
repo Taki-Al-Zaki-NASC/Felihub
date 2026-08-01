@@ -26,7 +26,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     where: { id: userId },
     select: {
       id: true, email: true, username: true, displayName: true, role: true,
-      image: true, idSubmitted: true, depositPaid: true, kycStage: true,
+      idSubmitted: true, depositPaid: true, kycStage: true,
       _count: { select: { notifications: { where: { read: false } } } },
       profile: { select: { headline: true } },
     },
@@ -39,7 +39,6 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
-    image: user.image,
     isVerified: isVerified(user),
     onboarded: Boolean(user.profile),
     unreadNotifications: user._count.notifications,

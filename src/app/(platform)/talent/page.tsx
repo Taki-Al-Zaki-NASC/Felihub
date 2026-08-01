@@ -54,7 +54,7 @@ export default async function Talent({
     take: 50,
     orderBy: { createdAt: 'desc' },
     select: {
-      id: true, username: true, displayName: true, image: true,
+      id: true, username: true, displayName: true,
       profile: {
         select: {
           headline: true, bio: true, location: true, skills: true,
@@ -96,7 +96,7 @@ export default async function Talent({
             <li key={p.id}>
               <Card className="flex h-full flex-col p-5">
                 <div className="flex items-start gap-3">
-                  <Avatar src={p.image} name={p.displayName} size={44} />
+                  <Avatar username={p.username} name={p.displayName} size={44} />
                   <div className="min-w-0">
                     <Link href={`/profile/${p.username}`}
                       className="block truncate font-semibold hover:underline">

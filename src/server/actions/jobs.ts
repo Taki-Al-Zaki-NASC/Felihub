@@ -8,6 +8,7 @@ import { requireUser } from '@/server/auth';
 import { canBid, canPostJob } from '@/server/services/verification';
 import { parseMoney } from '@/lib/money';
 import { CATEGORIES } from '@/lib/categories';
+import { parseTags, tagsSchema } from '@/lib/tags';
 import type { FormResult } from '@/server/actions/profile';
 
 const jobSchema = z.object({
@@ -16,7 +17,7 @@ const jobSchema = z.object({
     .min(80, 'Scope, deliverables and how you will judge it done — a couple of paragraphs.')
     .max(20000),
   category: z.enum(CATEGORIES, { message: 'Pick a category.' }),
-  skills: z.array(z.string().max(40)).min(1, 'List at least one skill.'),
+  skills: tagsSchema.min(1, 'List at least one skill.'),
   budgetCents: z.number().int().positive('Enter a budget.'),
 });
 
@@ -61,8 +62,7 @@ export async function createJobAction(
     title: form.get('title'),
     description: form.get('description'),
     category: form.get('category'),
-    skills: String(form.get('skills') ?? '')
-      .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 15),
+    skills: parseTags(form.get('skills')),
     budgetCents: parseMoney(String(form.get('budget') ?? '')) ?? 0,
   });
   if (!parsed.success) return flatten(parsed.error);

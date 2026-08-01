@@ -50,8 +50,8 @@ export default async function Onboarding() {
       <div className="mt-7 rounded-lg border border-border bg-surface p-5">
         <h2 className="text-sm font-semibold">Profile photo</h2>
         <div className="mt-3">
-          <AvatarUpload image={account.image} displayName={user.displayName}
-            required={isFreelancer} />
+          <AvatarUpload username={user.username} displayName={user.displayName}
+            hasImage={Boolean(account.image)} required={isFreelancer} />
         </div>
       </div>
 

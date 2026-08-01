@@ -5,6 +5,7 @@ import { useActionState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/field';
+import { Avatar } from '@/components/ui/avatar';
 import { saveAvatarAction } from '@/server/actions/avatar';
 import type { FormResult } from '@/server/actions/profile';
 
@@ -16,7 +17,7 @@ import type { FormResult } from '@/server/actions/profile';
  * at that size — and on a slow connection it is the difference between the
  * upload working and it timing out.
  */
-async function downscale(file: File, size = 256): Promise<string> {
+async function downscale(file: File, size = 192): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(size / bitmap.width, size / bitmap.height, 1);
   const w = Math.round(bitmap.width * scale);
@@ -30,20 +31,27 @@ async function downscale(file: File, size = 256): Promise<string> {
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
 
-  return canvas.toDataURL('image/jpeg', 0.82);
+  return canvas.toDataURL('image/jpeg', 0.72);
 }
 
 export function AvatarUpload({
-  image, displayName, required,
+  username, displayName, hasImage, required,
 }: {
-  image: string | null;
+  username: string;
   displayName: string;
+  hasImage: boolean;
   required?: boolean;
 }) {
   const [state, action, pending] = useActionState<FormResult | null, FormData>(
     saveAvatarAction, null,
   );
-  const [preview, setPreview] = React.useState(image);
+  // Null means "show whatever the server has"; a string is a just-picked image
+  // previewed locally. Keeping them distinct avoids re-fetching the avatar URL
+  // to show something the browser already has in memory.
+  const [picked, setPicked] = React.useState<string | null>(null);
+  const [cleared, setCleared] = React.useState(false);
+  const shown = cleared ? null : picked;
+  const hasAny = Boolean(picked) || (hasImage && !cleared);
   const [localError, setLocalError] = React.useState<string>();
   const formRef = React.useRef<HTMLFormElement>(null);
   const valueRef = React.useRef<HTMLInputElement>(null);
@@ -57,7 +65,8 @@ export function AvatarUpload({
     }
     try {
       const dataUrl = await downscale(file);
-      setPreview(dataUrl);
+      setPicked(dataUrl);
+      setCleared(false);
       if (valueRef.current) valueRef.current.value = dataUrl;
       formRef.current?.requestSubmit();
     } catch (e) {
@@ -67,7 +76,8 @@ export function AvatarUpload({
   };
 
   const remove = () => {
-    setPreview(null);
+    setPicked(null);
+    setCleared(true);
     if (valueRef.current) valueRef.current.value = 'REMOVE';
     formRef.current?.requestSubmit();
   };
@@ -79,27 +89,28 @@ export function AvatarUpload({
       <input ref={valueRef} type="hidden" name="image" />
 
       <div className="flex items-center gap-4">
-        {preview ? (
-          // Deliberately not next/image: this is a data URL, already sized at
-          // 256px, and the optimiser has nothing to add to it.
+        {shown ? (
+          // A just-picked image, still only in this browser.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt=""
+          <img src={shown} alt=""
             className="h-16 w-16 shrink-0 rounded-full border border-border object-cover" />
-        ) : (
+        ) : cleared ? (
           <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-teal-tint font-serif text-xl font-semibold text-teal-deep">
             {displayName.charAt(0).toUpperCase()}
           </span>
+        ) : (
+          <Avatar username={username} name={displayName} size={64} />
         )}
 
         <div className="min-w-0">
           <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-md border border-border-strong bg-surface px-4 text-sm font-semibold hover:bg-backdrop">
             <Camera className="h-4 w-4" />
-            {pending ? 'Saving…' : preview ? 'Change photo' : 'Add a photo'}
+            {pending ? 'Saving…' : hasAny ? 'Change photo' : 'Add a photo'}
             <input type="file" accept="image/*" className="sr-only"
               onChange={(e) => pick(e.target.files?.[0])} />
           </label>
 
-          {preview && (
+          {hasAny && (
             <Button type="button" variant="ghost" size="sm" onClick={remove}
               className="ml-2 text-ink-muted">
               <Trash2 className="h-3.5 w-3.5" /> Remove

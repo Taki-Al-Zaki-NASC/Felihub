@@ -1,39 +1,42 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The photo, or the initial as a fallback.
+ * Someone's photo, by username.
  *
- * One component so the fallback is identical everywhere — v1 drew the initial
- * five different ways and two of them overflowed on long names.
+ * Always a URL, never the image itself: avatars used to be base64 data URLs
+ * selected on every request and inlined into the HTML, which made every page
+ * tens of kilobytes heavier and the talent directory megabytes. `/api/avatar`
+ * serves the bytes with an ETag, so the browser fetches each one once.
  *
- * `img` rather than next/image on purpose: these are 256px data URLs written
- * by the avatar upload, so there is no remote fetch to optimise and no domain
- * to allowlist.
+ * The route also draws the initial fallback, so there is no branch here and no
+ * query anywhere needs to select the image column just to know whether one
+ * exists.
+ *
+ * `img` rather than next/image: these are already sized, same-origin, and
+ * cached — the optimiser has nothing to add and would add a round trip.
  */
-export function Avatar({ src, name, size = 40, className }: {
-  src: string | null | undefined;
+export function Avatar({ username, name, size = 40, className, priority }: {
+  username: string;
   name: string;
   size?: number;
   className?: string;
+  /** The one avatar that is part of the first paint — the top bar. */
+  priority?: boolean;
 }) {
-  const style = { width: size, height: size };
-
-  if (src) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" style={style}
-        className={cn('shrink-0 rounded-full border border-border object-cover', className)} />
-    );
-  }
-
   return (
-    <span style={style} aria-hidden
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/avatar/${encodeURIComponent(username)}`}
+      alt={name}
+      width={size}
+      height={size}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      style={{ width: size, height: size }}
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-full bg-teal-tint font-serif font-semibold text-teal-deep',
-        size >= 56 ? 'text-xl' : size >= 40 ? 'text-sm' : 'text-xs',
+        'shrink-0 rounded-full border border-border bg-teal-tint object-cover',
         className,
-      )}>
-      {name.charAt(0).toUpperCase()}
-    </span>
+      )}
+    />
   );
 }

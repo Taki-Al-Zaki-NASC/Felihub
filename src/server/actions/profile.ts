@@ -7,6 +7,7 @@ import { db } from '@/server/db';
 import { requireUser } from '@/server/auth';
 import { parseMoney } from '@/lib/money';
 import { experienceSchema } from '@/lib/experience';
+import { parseTags, tagsSchema } from '@/lib/tags';
 
 export interface FormResult {
   error?: string;
@@ -14,19 +15,12 @@ export interface FormResult {
   ok?: boolean;
 }
 
-const listOf = (raw: FormDataEntryValue | null) =>
-  String(raw ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 25);
-
 const profileSchema = z.object({
   displayName: z.string().trim().min(2, 'Tell us your name.').max(80),
   headline: z.string().trim().min(4, 'One line on what you do.').max(120),
   bio: z.string().trim().min(40, 'Write at least a couple of sentences — this is what a client reads first.').max(4000),
   location: z.string().trim().min(2, 'Where are you based?').max(120),
-  skills: z.array(z.string().max(40)),
+  skills: tagsSchema,
   hourlyRateCents: z.number().int().positive().nullable(),
   portfolioUrl: z.string().trim().url('That is not a full URL.').max(300)
     .or(z.literal('')).transform((v) => v || null),
@@ -62,7 +56,7 @@ export async function saveProfileAction(
     headline: form.get('headline'),
     bio: form.get('bio'),
     location: form.get('location'),
-    skills: listOf(form.get('skills')),
+    skills: parseTags(form.get('skills')),
     hourlyRateCents: isFreelancer && rate ? parseMoney(rate) : null,
     portfolioUrl: form.get('portfolioUrl') ?? '',
   });
@@ -75,8 +69,18 @@ export async function saveProfileAction(
   // A freelancer without a photo cannot bid (see meetsMandatoryRequirements),
   // so refuse it here rather than letting them finish onboarding and discover
   // the wall at the moment they try to bid on something.
-  if (isFreelancer && !user.image) {
-    return { error: 'Add a profile photo above before saving — bidding needs one, and clients skip faceless profiles.' };
+  //
+  // Read from the database rather than the session: the session deliberately
+  // no longer carries the image, because doing so put ~30 KB in the HTML of
+  // every page in the product.
+  if (isFreelancer) {
+    const photo = await db.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { image: true },
+    });
+    if (!photo.image) {
+      return { error: 'Add a profile photo above before saving — bidding needs one, and clients skip faceless profiles.' };
+    }
   }
 
   const wasOnboarded = user.onboarded;

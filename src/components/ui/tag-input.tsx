@@ -4,6 +4,7 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MAX_TAGS, MAX_TAG_LENGTH, MIN_TAG_LENGTH } from '@/lib/tags';
 
 /**
  * Skills as chips, the way every marketplace does it.
@@ -18,7 +19,7 @@ import { cn } from '@/lib/utils';
  * POST if the component never hydrates.
  */
 export function TagInput({
-  label, name, defaultValue = [], placeholder, hint, error, max = 15, suggestions,
+  label, name, defaultValue = [], placeholder, hint, error, max = MAX_TAGS, suggestions,
 }: {
   label: string;
   name: string;
@@ -43,14 +44,25 @@ export function TagInput({
     setTags((current) => {
       const next = [...current];
       for (const part of parts) {
-        const value = part.slice(0, 40);
-        if (next.length >= max) { setNotice(`That is the maximum of ${max}.`); break; }
+        if (next.length >= max) {
+          setNotice(`${max} is the limit — pick the ones you actually want to be found for.`);
+          break;
+        }
+        if (part.length < MIN_TAG_LENGTH) {
+          setNotice(`“${part}” is too short.`);
+          continue;
+        }
+        // Truncate rather than reject: losing the tail of one long tag beats
+        // losing the whole thing without saying so.
+        const value = part.slice(0, MAX_TAG_LENGTH);
+        if (value.length < part.length) {
+          setNotice(`Shortened to ${MAX_TAG_LENGTH} characters — these are tags, not sentences.`);
+        }
         if (next.some((t) => t.toLowerCase() === value.toLowerCase())) {
           setNotice(`“${value}” is already there.`);
           continue;
         }
         next.push(value);
-        setNotice(undefined);
       }
       return next;
     });
@@ -84,9 +96,15 @@ export function TagInput({
           cannot be submitted as if it were committed. */}
       <input type="hidden" name={name} value={tags.join(', ')} />
 
-      <label htmlFor={id} className="block text-sm font-semibold">
-        {label}
-      </label>
+      <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor={id} className="block text-sm font-semibold">
+          {label}
+        </label>
+        <span className={cn('text-xs tabular-nums',
+          tags.length >= max ? 'font-semibold text-amber' : 'text-ink-faint')}>
+          {tags.length} / {max}
+        </span>
+      </div>
 
       <div className={cn(
         'mt-1.5 flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-md border bg-surface p-1.5',
@@ -112,16 +130,20 @@ export function TagInput({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
+          maxLength={MAX_TAG_LENGTH}
+          disabled={tags.length >= max}
           // Committing on blur too: people type a skill and click Save, and
           // losing it silently is worse than any keyboard convention.
           onBlur={() => add(draft)}
-          placeholder={tags.length === 0 ? placeholder : 'Add another…'}
+          placeholder={
+            tags.length >= max ? '' : tags.length === 0 ? placeholder : 'Add another…'
+          }
           aria-describedby={`${id}-hint`}
           className="min-w-[10ch] flex-1 border-0 bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-ink-faint"
         />
       </div>
 
-      {unused && unused.length > 0 && (
+      {unused && unused.length > 0 && tags.length < max && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {unused.map((s) => (
             <button key={s} type="button" onClick={() => add(s)}

@@ -64,6 +64,35 @@ provider's SQL editor (Supabase → SQL Editor → New query) and run it. That
 file is generated from `prisma/schema.prisma` and creates all 14 tables with
 their enums, indexes and foreign keys.
 
+### If the site feels slow
+
+Check **`/api/health`** first — it reports `dbLatencyMs`, the round trip for one
+query. Every signed-in page runs two or three, so this number is most of the
+wait.
+
+- **Under ~60 ms** — the database is not your problem.
+- **200 ms or more** — the database is almost certainly in a different region
+  from your functions. Every query pays that twice. Fix it in Vercel →
+  Settings → Functions → **Function Region**, set to whichever is nearest your
+  Supabase project's region. This is usually the single biggest win, and it
+  costs nothing.
+- **A long wait and then an error, on the first request after a quiet
+  period** — Supabase pauses free-tier projects after a week of inactivity.
+  The first request wakes it, which takes far longer than any request timeout
+  allows. Open the Supabase dashboard once to resume it.
+
+Two things the app itself does to stay quick, worth not undoing:
+
+- **Avatars are never inlined.** They used to be base64 data URLs selected in
+  the session lookup, so ~19 KB of image rode in the HTML of *every* page and
+  the talent directory approached a megabyte before any content. They are now
+  served from `/api/avatar/[username]` with an ETag, so the browser fetches
+  each one once and revalidates with a 304.
+- **Every signed-in route has a `loading.tsx`.** These pages are rendered on
+  demand against the database, so there is always a wait; without a skeleton
+  the browser holds the *previous* page for the whole of it and the click
+  appears to have done nothing.
+
 ### Is this deployment actually working?
 
 **`/api/health`** answers it in one request — no log-diving:

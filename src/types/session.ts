@@ -15,7 +15,6 @@ export interface SessionUser {
   username: string;
   displayName: string;
   role: Role;
-  image: string | null;
   isVerified: boolean;
   onboarded: boolean;
   unreadNotifications: number;

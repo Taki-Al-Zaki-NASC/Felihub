@@ -37,6 +37,21 @@ const ok = (step) => console.log(`  ✓ ${step}`);
 const body = (page) => page.locator('body').innerText();
 
 /**
+ * Navigate, and wait for the content rather than the skeleton.
+ *
+ * Signed-in pages stream: Next sends `loading.tsx` immediately and the real
+ * content when the queries finish. That is the point — it is what makes a
+ * click feel instant — but it means `domcontentloaded` now fires while the
+ * skeleton is on screen, and reading the page there sees placeholder boxes.
+ * Waiting for the skeleton to detach is the honest "the page has loaded".
+ */
+async function open(page, path) {
+  await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-loading]').waitFor({ state: 'detached', timeout: 20000 })
+    .catch(() => {});
+}
+
+/**
  * A page that is wider than the window has escaped its container, and on a
  * phone that makes everything unusable — every fixed header slides, and the
  * user scrolls sideways to read one line. It is caused by content with no
@@ -157,17 +172,17 @@ if (/Find work/i.test(text) && !/Post a job/i.test(text)) {
 if (!/Posting balance/i.test(text)) note('client dashboard', 'no posting balance shown');
 
 for (const path of ['/talent', '/contracts', '/wallet', '/settings', '/messages', '/notifications']) {
-  await c.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
+  await open(c, path);
   if (/Something broke|Application error/i.test(await body(c))) note(`client ${path}`, 'crashed');
   await noOverflow(c, `client ${path}`);
 }
 ok('client visited every nav destination');
 
-await c.goto(`${BASE}/jobs`, { waitUntil: 'domcontentloaded' });
+await open(c, `/jobs`);
 if (!/Find talent/i.test(await body(c))) note('client /jobs', 'was not redirected to /talent');
 else ok('client /jobs redirects to /talent');
 
-await c.goto(`${BASE}/jobs/new`, { waitUntil: 'domcontentloaded' });
+await open(c, `/jobs/new`);
 await c.getByLabel('Title').fill('Build a five-screen onboarding flow in Flutter');
 await c.getByLabel('Category').selectOption('Development & IT');
 await c.getByLabel('Description').fill(
@@ -195,15 +210,15 @@ await verify(f, '1990123456789');     ok('verified');
 if (/Post a job/i.test(await body(f))) note('freelancer dashboard', 'shows the hirer view');
 else ok('freelancer dashboard is the freelancer view');
 
-await f.goto(`${BASE}/talent`, { waitUntil: 'domcontentloaded' });
+await open(f, `/talent`);
 if (!/Find work/i.test(await body(f))) note('freelancer /talent', 'was not redirected to /jobs');
 else ok('freelancer /talent redirects to /jobs');
 
-await f.goto(`${BASE}/jobs`, { waitUntil: 'domcontentloaded' });
+await open(f, `/jobs`);
 if (!/onboarding flow/i.test(await body(f))) note('find work', 'the posted job is not listed');
 else ok('posted job appears on the board');
 
-await f.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+await open(f, jobUrl.replace(BASE, ''));
 const bid = f.getByLabel('Your price');
 if (!(await bid.count())) {
   note('bid', `no bid form for a verified freelancer — ${(await body(f)).slice(0, 250)}`);
@@ -222,7 +237,7 @@ if (!(await bid.count())) {
 
 /* ── Hiring, which is where the money moves ───────────────────────────── */
 console.log('\n=== HIRE ===');
-await c.goto(`${BASE}/wallet`, { waitUntil: 'domcontentloaded' });
+await open(c, `/wallet`);
 const topUp = c.getByRole('button', { name: /add \$1,000/i });
 if (!(await topUp.count())) note('top up', 'no way to add to the posting balance');
 else {
@@ -232,7 +247,7 @@ else {
   else ok('posting balance topped up');
 }
 
-await c.goto(jobUrl, { waitUntil: 'domcontentloaded' });
+await open(c, jobUrl.replace(BASE, ''));
 text = await body(c);
 if (!/Fred Freelancer/i.test(text)) {
   note('proposals', `the owner cannot see the bid — ${text.slice(0, 250)}`);
@@ -254,11 +269,11 @@ if (!/Fred Freelancer/i.test(text)) {
 
 /* ── What the hire should have set in motion ──────────────────────────── */
 console.log('\n=== AFTER THE HIRE ===');
-await f.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
+await open(f, `/notifications`);
 if (!/hired/i.test(await body(f))) note('notifications', 'the freelancer was not told');
 else ok('freelancer notified');
 
-await f.goto(`${BASE}/messages`, { waitUntil: 'domcontentloaded' });
+await open(f, `/messages`);
 if (!/Casey Client/i.test(await body(f))) {
   note('messages', 'no thread was opened on hire');
 } else {
@@ -272,35 +287,35 @@ if (!/Casey Client/i.test(await body(f))) {
   if (!/state model today/i.test(await body(f))) note('messages', 'the sent message did not appear');
   else ok('message sent and rendered');
 
-  await c.goto(`${BASE}/messages`, { waitUntil: 'domcontentloaded' });
+  await open(c, `/messages`);
   if (!/state model today/i.test(await body(c))) note('messages', 'the client does not see it');
   else ok('client sees the reply');
 }
 
-await c.goto(`${BASE}/contracts`, { waitUntil: 'domcontentloaded' });
+await open(c, `/contracts`);
 if (!/onboarding flow/i.test(await body(c))) note('contracts', 'missing for the client');
 else ok('contract listed for the client');
 
-await f.goto(`${BASE}/contracts`, { waitUntil: 'domcontentloaded' });
+await open(f, `/contracts`);
 if (!/onboarding flow/i.test(await body(f))) note('contracts', 'missing for the freelancer');
 else ok('contract listed for the freelancer');
 
-await f.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
+await open(f, `/settings`);
 const handle = (await body(f)).match(/Username\s*\n?@([a-z0-9-]+)/)?.[1];
 if (!handle) note('profile view', 'could not read the freelancer username from settings');
 else {
-  await c.goto(`${BASE}/profile/${handle}`, { waitUntil: 'domcontentloaded' });
+  await open(c, `/profile/${handle}`);
   if (!/Fred Freelancer/i.test(await body(c))) note('profile view', 'the client cannot read it');
   else ok('client can read the freelancer profile');
 }
 
 /* ── Sessions ─────────────────────────────────────────────────────────── */
 console.log('\n=== SESSION ===');
-await c.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
+await open(c, `/settings`);
 await c.getByRole('button', { name: /^sign out$/i }).click();
 await c.waitForURL(`${BASE}/`, { timeout: 20000 })
   .catch(() => note('sign out', 'did not land on the home page'));
-await c.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+await open(c, `/dashboard`);
 if (!/\/sign-in/.test(c.url())) note('sign out', 'the dashboard is still reachable');
 else ok('signed out and locked out');
 
@@ -311,7 +326,7 @@ await c.waitForURL(/\/dashboard/, { timeout: 30000 })
   .catch(async () => note('sign in', `did not reach the dashboard — ${(await body(c)).slice(0, 250)}`));
 if (/\/dashboard/.test(c.url())) ok('signed back in');
 
-await c.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
+await open(c, `/settings`);
 await c.getByRole('button', { name: /^sign out$/i }).click();
 await c.waitForURL(`${BASE}/`, { timeout: 20000 }).catch(() => {});
 await c.goto(`${BASE}/sign-in`, { waitUntil: 'domcontentloaded' });

@@ -36,10 +36,25 @@ export async function GET() {
   try {
     // Reaches the server and the schema in one go: if the table is missing this
     // throws P2021, which is the failure we most want named.
+    const started = Date.now();
     const users = await db.user.count();
+    const dbLatencyMs = Date.now() - started;
+
+    // Round-trip time is the single most useful number when the site "feels
+    // slow": every page runs two or three queries, so 250ms here is most of a
+    // second before any rendering. The usual cause is the database being in a
+    // different region from the functions.
+    const latency =
+      dbLatencyMs < 60 ? 'good'
+        : dbLatencyMs < 200 ? 'acceptable'
+          : 'slow — is the database in the same region as your functions?';
+
     return NextResponse.json({
       ok: checks.authSecretSet === true,
-      checks: { ...checks, databaseReachable: true, tablesPresent: true, users },
+      checks: {
+        ...checks, databaseReachable: true, tablesPresent: true, users,
+        dbLatencyMs, latency,
+      },
       ...(checks.authSecretSet
         ? {}
         : {

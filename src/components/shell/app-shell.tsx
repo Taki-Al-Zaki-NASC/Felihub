@@ -97,7 +97,7 @@ export function AppShell({
             <Link href={`/profile/${user.username}`}
               className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-backdrop"
               aria-label="Your profile">
-              <Avatar src={user.image} name={user.displayName} size={32} />
+              <Avatar username={user.username} name={user.displayName} size={32} priority />
             </Link>
           </div>
         </div>

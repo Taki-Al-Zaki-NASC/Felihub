@@ -28,7 +28,7 @@ export default async function Thread({
       job: { select: { id: true, title: true } },
       members: {
         where: { userId: { not: user.id } },
-        select: { user: { select: { displayName: true, username: true, image: true } } },
+        select: { user: { select: { displayName: true, username: true } } },
       },
       messages: {
         orderBy: { createdAt: 'asc' },
@@ -52,7 +52,7 @@ export default async function Thread({
           className="flex h-10 w-10 items-center justify-center rounded-md text-ink-muted hover:bg-backdrop lg:hidden">
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <Avatar src={other?.image} name={other?.displayName ?? '?'} size={36} />
+        <Avatar username={other?.username ?? ''} name={other?.displayName ?? '?'} size={36} />
         <div className="min-w-0 flex-1">
           {other ? (
             <Link href={`/profile/${other.username}`}

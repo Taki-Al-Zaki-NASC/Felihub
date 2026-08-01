@@ -24,7 +24,7 @@ export default async function Messages() {
           job: { select: { title: true } },
           members: {
             where: { userId: { not: user.id } },
-            select: { user: { select: { displayName: true, username: true, image: true } } },
+            select: { user: { select: { displayName: true, username: true } } },
           },
           messages: {
             orderBy: { createdAt: 'desc' },
@@ -64,7 +64,7 @@ export default async function Messages() {
                 <li key={thread.id}>
                   <Link href={`/messages/${thread.id}`}
                     className="flex items-center gap-3 px-5 py-4 hover:bg-neutral-tint">
-                    <Avatar src={other?.image} name={other?.displayName ?? '?'} size={40} />
+                    <Avatar username={other?.username ?? ''} name={other?.displayName ?? '?'} size={40} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span className={`truncate ${unread ? 'font-bold' : 'font-semibold'}`}>
