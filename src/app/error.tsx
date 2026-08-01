@@ -33,6 +33,16 @@ export default function GlobalError({
           {error.digest}
         </code>
       )}
+      {/* A digest alone means reading server logs to learn anything. The health
+          endpoint answers the common causes — no database, no tables, no
+          AUTH_SECRET — in one request. */}
+      <p className="mt-4 text-xs text-ink-faint">
+        Running this site?{' '}
+        <a href="/api/health" className="underline hover:text-ink-muted">
+          /api/health
+        </a>{' '}
+        says whether the database and configuration are in order.
+      </p>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Button size="lg" onClick={reset}>Try again</Button>
         <Button asChild size="lg" variant="outline">

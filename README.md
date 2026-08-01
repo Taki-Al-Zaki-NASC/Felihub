@@ -44,14 +44,42 @@ Three environment variables, all required before accounts work:
 
 | Variable | What it is |
 | --- | --- |
-| `DATABASE_URL` | Pooled Postgres connection (Neon/Supabase free tier is fine) |
-| `DIRECT_URL` | Direct connection, used by `prisma db push` / migrations |
+| `DATABASE_URL` | **Pooled** connection. Supabase: "Transaction pooler", port 6543, and it **must** end with `?pgbouncer=true&connection_limit=1` |
+| `DIRECT_URL` | **Direct** connection. Supabase: port 5432. Used by `prisma db push` |
 | `AUTH_SECRET` | 32+ random characters — `openssl rand -base64 32` |
 
-Then run `npx prisma db push` once against `DIRECT_URL` to create the tables.
+If the database password contains `@ : / ? #`, URL-encode it — an unencoded
+`@` splits the connection string in the wrong place and shows up as an
+authentication failure.
 
-Without them the marketing pages still build and serve; sign-up and sign-in
-say plainly that the database is not connected rather than throwing.
+**Then create the tables.** Setting the variables is not enough; a connected
+database with no tables fails every sign-in. Either:
+
+```bash
+npx prisma db push        # needs the repo checked out locally
+```
+
+…or, with no local setup at all, paste **`prisma/init.sql`** into your
+provider's SQL editor (Supabase → SQL Editor → New query) and run it. That
+file is generated from `prisma/schema.prisma` and creates all 14 tables with
+their enums, indexes and foreign keys.
+
+### Is this deployment actually working?
+
+**`/api/health`** answers it in one request — no log-diving:
+
+```json
+{ "ok": true, "checks": { "databaseUrlSet": true, "authSecretSet": true,
+  "databaseReachable": true, "tablesPresent": true, "users": 0 } }
+```
+
+When something is wrong it names the cause and the fix, e.g. *"The database is
+connected, but its tables have not been created yet. Run `npx prisma db push`
+against DIRECT_URL."* It never returns connection strings, host names or
+credentials.
+
+Without any of the three variables the marketing pages still build and serve;
+sign-up and sign-in say plainly what is missing rather than throwing.
 
 ## Status
 

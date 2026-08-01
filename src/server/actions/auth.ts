@@ -5,6 +5,7 @@ import { Prisma, type Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { databaseConfigured, db } from '@/server/db';
+import { describeDbError } from '@/server/db-errors';
 import { authConfigured, createSession, destroySession } from '@/server/session';
 
 /**
@@ -107,9 +108,8 @@ export async function signUpAction(
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
       return { fieldErrors: { email: 'That email already has an account.' } };
     }
-    if (e instanceof Prisma.PrismaClientInitializationError) {
-      return { error: 'Could not reach the database. Check DATABASE_URL.' };
-    }
+    const described = describeDbError(e);
+    if (described) return { error: described };
     throw e;
   }
 
@@ -145,9 +145,8 @@ export async function signInAction(
     if (!(await bcrypt.compare(password, user.passwordHash))) return wrong;
     await createSession(user.id);
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientInitializationError) {
-      return { error: 'Could not reach the database. Check DATABASE_URL.' };
-    }
+    const described = describeDbError(e);
+    if (described) return { error: described };
     throw e;
   }
 
